@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나만의 CBT</title>
+    <style>
+        /* 기본 & 레이아웃 */
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .hidden { display: none !important; }
+        
+        /* 버튼 */
+        .button { width: 100%; padding: 12px; font-size: 1rem; border-radius: 6px; cursor: pointer; margin-top: 10px; border: 1px solid #dee2e6; font-weight: 600; transition: all 0.2s ease-in-out; }
+        .primary-button { background-color: #0d6efd; color: white; border-color: #0d6efd; }
+        .secondary-button { background-color: #6c757d; color: white; border-color: #6c757d; }
+        .light-button { background-color: #f8f9fa; color: #212529; }
+        .small-button { width: auto; padding: 5px 10px; font-size: 0.8em; margin: 0; }
+        .icon-button { background: none; border: none; cursor: pointer; padding: 8px; font-size: 1.2rem; color: #6c757d; border-radius: 5px; line-height: 1; }
+        .icon-button:hover { background-color: #e9ecef; }
+
+        /* 상단 인증 영역 */
+        #auth-container { display: flex; align-items: center; padding-bottom: 10px; border-bottom: 1px solid #eee; margin-bottom: 20px; }
+        #auth-container span { margin-right: auto; font-size: 0.9em; color: #555; }
+        #auth-container .button { width: auto; font-size: 0.9em; padding: 8px 12px; margin-left: 10px; margin-top: 0; }
+        
+         /* 폼 그룹 & 입력창 */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .form-group input, .form-group textarea { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; font-size: 1em; font-family: inherit; }
+        .dynamic-field-group { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .dynamic-field-group .field-label { font-size: 0.9em; color: #6c757d; min-width: 25px; }
+        .dynamic-field-group input { flex-grow: 1; padding: 10px; font-size: 1em; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+        .remove-btn { padding: 5px 10px; font-size: 0.8em; background-color: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* 과목 선택 화면 레이아웃 */
+        .subject-item { display: flex; justify-content: space-between; align-items: center; padding: 20px; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 15px; }
+        .subject-item-name-container { flex-grow: 1; margin-right: 15px; }
+        .subject-item-name { font-weight: 600; font-size: 1.1rem; }
+        .subject-item-buttons { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+        .subject-item-buttons .button { width: auto; margin: 0; padding: 8px 12px; font-size: 0.9em; }
+        .edit-btn, .delete-btn { background: none; border: none; cursor: pointer; padding: 8px; font-size: 1.1rem; color: #6c757d; border-radius: 5px; }
+        .edit-btn:hover, .delete-btn:hover { background-color: #f0f2f5; color: #212529; }
+        .subject-name-input { font-size: 1.1rem; font-weight: 600; border: 1px solid #0d6efd; padding: 5px; border-radius: 4px; }
+        
+        /* 문제 관리 화면 & 2분할 레이아웃 */
+        .management-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;}
+        .learning-mode-selector { display: flex; }
+        .learning-mode-selector .button { margin-top:0; border-radius: 0; }
+        .learning-mode-selector .button:first-child { border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+        .learning-mode-selector .button:last-child { border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+        .learning-mode-selector .button + .button { border-left-width: 0; }
+        #question-list-container.split-view { display: flex; gap: 20px; }
+        #tree-panel { flex: 1; min-width: 250px; border: 1px solid #eee; border-radius: 8px; padding: 10px; height: 500px; overflow-y: auto; }
+        #problem-list-panel { flex: 2; border: 1px solid #eee; border-radius: 8px; height: 500px; overflow-y: auto; }
+        
+        /* 문제 목록 아이템 스타일 통일 */
+        .question-item { display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; }
+        .question-item:last-child { border-bottom: none; }
+        .question-item:hover { background-color: #f8f9fa; }
+        .question-item-text { flex-grow: 1; margin-right: 15px; font-size: 0.95em; }
+        .question-item-actions { display: flex; gap: 10px; }
+        
+        /* 퀴즈 풀이 화면 레이아웃 */
+        #quiz-header { padding: 10px 20px; background-color: #f8f9fa; border-radius: 8px; margin-bottom: 20px; font-weight: bold; text-align: center; }
+        #quiz-body h4 { font-size: 1.4em; margin-bottom: 25px; line-height: 1.5; }
+        .options-container { display: flex; flex-direction: column; gap: 10px; }
+        .option { padding: 15px 20px; border: 1px solid #dee2e6; border-radius: 8px; cursor: pointer; transition: all 0.2s ease-in-out; }
+        .option:hover { background-color: #f8f9fa; }
+        .option.selected { background-color: #e0eaff; border-color: #0d6efd; font-weight: bold; }
+        .feedback { padding: 15px; margin-top: 20px; border-radius: 8px; }
+        .feedback.correct { background-color: #d1e7dd; color: #0f5132; }
+        .feedback.incorrect { background-color: #f8d7da; color: #842029; }
+        .feedback p { margin: 0; font-weight: bold; }
+        .feedback .explanation { font-weight: normal; margin-top: 10px; color: #555;}
+        #quiz-footer { margin-top: 25px; display: flex; flex-direction: column; gap: 10px; }
+
+        /* 트리 공통 스타일 */
+        #tree-panel ul { padding-left: 1em; list-style: none; }
+        #tree-panel li { padding: 2px 0; }
+        #tree-panel .node { cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; }
+        #tree-panel .node:hover { background-color: #f0f2f5; }
+        #tree-panel .node.selected { background-color: #0d6efd; color: white; }
+        #tree-panel .node-icon { margin-right: 5px; display: inline-block; width: 1em; transition: transform 0.2s; }
+        #tree-panel .node.expanded > .node-icon { transform: rotate(90deg); }
+        #tree-panel ul.collapsed { display: none; }
+
+         /* 과목 트리 레이아웃 */
+        #subject-controls { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        #subject-tree-actions { display: flex; align-items: center; gap: 10px; }
+        #subject-search { padding: 8px 12px; font-size: 0.9em; border-radius: 6px; border: 1px solid #ccc; min-width: 200px;}
+
+        #subject-list ul { list-style: none; padding-left: 20px; margin: 0; }
+        .node-header { display: flex; align-items: center; cursor: pointer; padding: 5px; border-radius: 4px;}
+        .node-header:hover { background-color: #f0f2f5; }
+        .node-icon { margin-right: 8px; transition: transform 0.2s; display: inline-block; width: 1em; }
+        .node-header.expanded > .node-icon { transform: rotate(90deg); }
+        .node-name { font-weight: bold; flex-grow: 1; }
+        .subject-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 10px 10px 28px; }
+        .subject-item:hover { background-color: #f8f9fa; border-radius: 4px;}
+        .subject-item-name-container { flex-grow: 1; margin-right: 15px; }
+        .subject-item-name { font-size: 1rem; }
+        .subject-item-buttons { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+        .subject-item-buttons .button { width: auto; margin: 0; padding: 8px 12px; font-size: 0.9em; }
+        .edit-btn, .delete-btn { background: none; border: none; cursor: pointer; padding: 8px; font-size: 1.1rem; color: #6c757d; border-radius: 5px; }
+        .edit-btn:hover, .delete-btn:hover { background-color: #e9ecef; }
+
+        /* 모달 */
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10; }
+        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 20; width: 90%; max-width: 500px; }
+        .modal .form-group label { display: flex; align-items: center; gap: 8px; font-weight: normal; }
+        .modal .form-group input[type="radio"] { width: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="auth-container"></div>
+        <div id="subject-view" class="hidden"></div>
+        <div id="management-view" class="hidden"></div>
+        <div id="quiz-view" class="hidden"></div>
+        <div id="login-view" class="hidden"></div>
+        <div id="signup-view" class="hidden"></div>
+        <div id="add-edit-view" class="hidden"></div>
+    </div>
+    <div id="modal-container"></div>
+    
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script>
+
+    const firebaseConfig = {
+    apiKey: "AIzaSyBl4mNG0HVKLY159dPjJEuYZTp9_ay_guk",
+          authDomain: "my-cbt-app-2cdb9.firebaseapp.com",
+          projectId: "my-cbt-app-2cdb9",
+          storageBucket: "my-cbt-app-2cdb9.firebasestorage.app",
+          messagingSenderId: "1091430877229",
+          appId: "1:1091430877229:web:1c4fae4ff852df4e1610a4"
+    };
+        
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    // 전역 변수
+    let allSubjects = [];
+    const views = ['subject-view', 'management-view', 'quiz-view', 'login-view', 'signup-view', 'add-edit-view'];
+    let userSettings = { subjectTreeState: {}, subjectTreeDefaultState: 'expanded' };
+    let currentLearningMode = 'list';
+    let currentSubjectId, currentSubjectData, allQuestionsForSubject = [];
+    let quizQuestions = [], selectedOption, currentQuizIndex = 0, quizScore = 0;
+
+    // ==================================
+    // ## 앱 초기화 및 화면 렌더링 ##
+    // ==================================
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('auth-container').innerHTML = `<span id="user-email"></span><div id="logged-out-view"><button class="button light-button" onclick="showView('login-view')">로그인</button><button class="button primary-button" onclick="showView('signup-view')">회원가입</button></div><div id="logged-in-view" class="hidden"><button class="button secondary-button" onclick="logOut()">로그아웃</button></div>`;
+        document.getElementById('subject-view').innerHTML = `<h2>과목 선택</h2><div id="subject-controls"><div id="subject-tree-actions"><button class="button light-button small-button" onclick="expandAllNodes()">모두 펼치기</button><button class="button light-button small-button" onclick="collapseAllNodes()">모두 접기</button><button class="icon-button" onclick="showTreeSettingsModal()" title="기본 보기 설정">⚙️</button></div><input type="search" id="subject-search" placeholder="학문/학기/과목명 검색..." onkeyup="filterSubjectTree()"></div><div id="subject-list" style="border: 1px solid #eee; border-radius: 8px; padding: 10px;"></div><button class="button primary-button" onclick="showSubjectForm()">+ 새 과목 추가</button>`;
+        document.getElementById('management-view').innerHTML = `<h2 id="management-header"></h2><div class="management-controls"><div class="learning-mode-selector" id="learning-mode-selector"></div><button class="button primary-button" style="margin-top:0; width: auto;" onclick="showFullEditView()">+ 새 문제 추가</button></div><div id="question-list-container"></div><button class="button light-button" onclick="showView('subject-view')" style="margin-top: 20px;">↩️ 과목 선택으로</button>`;
+        document.getElementById('login-view').innerHTML = `<h2>로그인</h2><div class="form-group"><label for="login-email">이메일</label><input type="email" id="login-email"></div><div class="form-group"><label for="login-password">비밀번호</label><input type="password" id="login-password"></div><button class="button primary-button" onclick="logIn()">로그인</button><button class="button light-button" onclick="showView('subject-view')">취소</button>`;
+        document.getElementById('signup-view').innerHTML = `<h2>회원가입</h2><div class="form-group"><label for="signup-email">이메일</label><input type="email" id="signup-email"></div><div class="form-group"><label for="signup-password">비밀번호</label><input type="password" id="signup-password"></div><button class="button primary-button" onclick="signUp()">회원가입</button><button class="button light-button" onclick="showView('subject-view')">취소</button>`;
+        document.getElementById('add-edit-view').innerHTML = `<h2 id="add-edit-header"></h2><input type="hidden" id="editing-question-id"><h4>1. 문제 정보 (필수)</h4><div class="form-group"><label for="q-text-full">문제 내용</label><textarea id="q-text-full" rows="3"></textarea></div><div class="form-group"><label for="q-answer-full">정답</label><input type="text" id="q-answer-full"></div><div class="form-group"><label for="q-explanation-full">해설</label><textarea id="q-explanation-full" rows="3"></textarea></div><hr><h4>2. 목차 정보 (이론 학습용)</h4><div class="form-group"><label for="q-part">대분류</label><input type="text" id="q-part" placeholder="예: 1과목 데이터베이스"></div><div class="form-group"><label for="q-chapter">중분류</label><input type="text" id="q-chapter" placeholder="예: 1장 정규화"></div><div class="form-group"><label for="q-section">소분류</label><input type="text" id="q-section" placeholder="예: 1절 BCNF"></div><hr><h4>3. 기출 정보 (실전 학습용)</h4><div class="form-group"><label for="q-examYear">연도</label><input type="text" id="q-examYear" placeholder="예: 2024"></div><div class="form-group"><label for="q-examRound">회차</label><input type="text" id="q-examRound" placeholder="예: 1회"></div><div class="form-group"><label for="q-examNumber">문제 번호</label><input type="text" id="q-examNumber" placeholder="예: 45번"></div><hr><h4>4. 객관식 보기 (선택)</h4><div class="form-group"><div id="q-options-container"></div><button class="button light-button small-button" onclick="addDynamicField('option')">+ 보기 추가</button></div><hr><h4>5. 개념 분석 (키워드/태그)</h4><div class="form-group"><label>키워드</label><div id="q-keywords-container"></div><button class="button light-button small-button" onclick="addDynamicField('keyword')">+ 키워드 추가</button></div><div class="form-group"><label>태그</label><div id="q-tags-container"></div><button class="button light-button small-button" onclick="addDynamicField('tag')">+ 태그 추가</button></div><div class="form-group"><label>메타태그</label><div id="q-metatags-container"></div><button class="button light-button small-button" onclick="addDynamicField('metatag')">+ 메타태그 추가</button></div><hr><div style="display:flex; gap: 10px;"><button class="button light-button" onclick="showManagementView(false)">취소</button><button id="save-full-btn" class="button primary-button">저장</button></div>`;
+
+        auth.onAuthStateChanged((user) => {
+            const authContainer = document.getElementById('auth-container');
+            if(authContainer) {
+                authContainer.innerHTML = user
+                    ? `<span id="user-email">${user.email}님</span><div id="logged-in-view"><button class="button secondary-button" onclick="logOut()">로그아웃</button></div>`
+                    : `<span id="user-email"></span><div id="logged-out-view"><button class="button light-button" onclick="showView('login-view')">로그인</button><button class="button primary-button" onclick="showView('signup-view')">회원가입</button></div>`;
+            }
+
+            if (user) {
+                initializeApp(user);
+            } else {
+                userSettings = { subjectTreeState: {}, subjectTreeDefaultState: 'expanded' };
+                const subjectList = document.getElementById('subject-list');
+                if(subjectList) subjectList.innerHTML = `<p style="text-align:center; padding: 20px;">로그인 후 이용해주세요.</p>`;
+                showView('login-view');
+            }
+        });
+    });
+
+    // ==================================
+    // ## 핵심 유틸리티 함수 ##
+    // ==================================
+    function showView(viewId) { views.forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', id !== viewId); }); }
+    function showFeedback(message, type = 'error') { const feedbackBar = document.getElementById('feedback-bar'); if (!feedbackBar) return; feedbackBar.textContent = message; feedbackBar.className = type; feedbackBar.classList.remove('hidden'); setTimeout(() => feedbackBar.classList.add('hidden'), 3000); }
+    
+    // ==================================
+    // ## 인증 및 앱 시작 함수 ##
+    // ==================================
+    async function initializeApp(user) {
+        await loadUserSettings(user.uid);
+        await loadSubjects();
+        showView('subject-view');
+    }
+
+    async function loadUserSettings(userId) {
+        const userDocRef = db.collection('users').doc(userId);
+        try {
+            const doc = await userDocRef.get();
+            if (doc.exists && doc.data().settings) {
+                userSettings = doc.data().settings;
+                if (!userSettings.subjectTreeState) userSettings.subjectTreeState = {};
+                if (!userSettings.subjectTreeDefaultState) userSettings.subjectTreeDefaultState = 'expanded';
+            } else {
+                userSettings = { subjectTreeState: {}, subjectTreeDefaultState: 'expanded' };
+            }
+        } catch (error) {
+            console.error("사용자 설정 로딩 중 오류:", error);
+            userSettings = { subjectTreeState: {}, subjectTreeDefaultState: 'expanded' };
+        }
+    }
+        
+    async function saveUserSettings() { const user = auth.currentUser; if (!user) return; const userDocRef = db.collection('users').doc(user.uid); try { await userDocRef.set({ settings: userSettings }, { merge: true }); } catch (error) { console.error("Error saving user settings:", error); } }
+    async function signUp() { try { await auth.createUserWithEmailAndPassword(document.getElementById('signup-email').value, document.getElementById('signup-password').value); } catch (e) { showFeedback(e.message); } }
+    async function logIn() { try { await auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value); } catch (e) { showFeedback(e.message); } }
+    function logOut() { auth.signOut(); }
+    
+    // ==================================
+    // ## 과목 관리 함수 ##
+    // ==================================
+    async function loadSubjects() {
+        const listDiv = document.getElementById('subject-list');
+        listDiv.innerHTML = '과목 로딩 중...';
+        try {
+            const snapshot = await db.collection('subjects').get();
+            allSubjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderSubjectTree();
+        } catch (error) { console.error("과목 로딩 중 오류:", error); }
+    }
+
+    function filterSubjectTree() {
+        const filterText = document.getElementById('subject-search').value;
+        renderSubjectTree(filterText);
+    }
+    
+    function renderSubjectTree(filterText = '') {
+        const lowerCaseFilter = filterText.toLowerCase().trim();
+        const filteredSubjects = lowerCaseFilter ? allSubjects.filter(s => (s.discipline && s.discipline.toLowerCase().includes(lowerCaseFilter)) || (s.semester && s.semester.toLowerCase().includes(lowerCaseFilter)) || (s.name && s.name.toLowerCase().includes(lowerCaseFilter))) : allSubjects;
+        const treeData = buildSubjectTreeData(filteredSubjects);
+        const container = document.getElementById('subject-list');
+        let html = '<ul>';
+        const sortedDisciplines = Object.keys(treeData).sort();
+
+        if (sortedDisciplines.length === 0 && filterText) {
+            container.innerHTML = `<p style="text-align:center; color:#888; padding: 20px;">'${filterText}'에 대한 검색 결과가 없습니다.</p>`;
+            return;
+        }
+
+        for (const discipline of sortedDisciplines) {
+            const disciplineState = userSettings.subjectTreeState[discipline];
+            const isExpanded = !!filterText || (disciplineState ? disciplineState === 'expanded' : userSettings.subjectTreeDefaultState === 'expanded');
+            html += `<li><div class="node-header ${isExpanded ? 'expanded' : ''}" onclick="toggleNode(this)"><span class="node-icon">▶</span><span class="node-name">${discipline}</span></div><ul class="${isExpanded ? '' : 'hidden'}">`;
+            
+            const sortedSemesters = Object.keys(treeData[discipline].semesters).sort();
+            for (const semester of sortedSemesters) {
+                const semesterState = userSettings.subjectTreeState[semester];
+                const isSemesterExpanded = !!filterText || (semesterState ? semesterState === 'expanded' : userSettings.subjectTreeDefaultState === 'expanded');
+                html += `<li><div class="node-header ${isSemesterExpanded ? 'expanded' : ''}" onclick="toggleNode(this)"><span class="node-icon">▶</span><span class="node-name">${semester}</span></div><ul class="${isSemesterExpanded ? '' : 'hidden'}">`;
+                treeData[discipline].semesters[semester].sort((a,b) => a.name.localeCompare(b.name)).forEach(subject => { html += `<li>${getSubjectItemHTML(subject)}</li>`; });
+                html += `</ul></li>`;
+            }
+            treeData[discipline].noSemester.sort((a,b) => a.name.localeCompare(b.name)).forEach(subject => { html += `<li>${getSubjectItemHTML(subject)}</li>`; });
+            html += `</ul></li>`;
+        }
+        html += `</ul>`;
+        container.innerHTML = html;
+    }
+
+    function buildSubjectTreeData(subjects) { const tree = {}; subjects.forEach(subject => { const discipline = subject.discipline || '미지정 학문'; const semester = subject.semester || null; if (!tree[discipline]) tree[discipline] = { semesters: {}, noSemester: [] }; if (semester) { if (!tree[discipline].semesters[semester]) tree[discipline].semesters[semester] = []; tree[discipline].semesters[semester].push(subject); } else { tree[discipline].noSemester.push(subject); } }); return tree; }
+    function getSubjectItemHTML(subject) { return `<div class="subject-item"><div class="subject-item-name-container"><span class="subject-item-name">${subject.name} (${subject.questionCount || 0}문제)</span></div><div class="subject-item-buttons"><button class="button primary-button" onclick="startQuiz('${subject.id}')">퀴즈 시작</button><button class="button secondary-button" onclick="manageSubject('${subject.id}')">문제 관리</button><button class="edit-btn" onclick="showSubjectForm('${subject.id}')">✏️</button><button class="delete-btn" onclick="deleteSubject('${subject.id}', '${subject.name}')">🗑️</button></div></div>`; }
+    function toggleNode(element) { const isNowExpanded = element.classList.toggle('expanded'); const subList = element.nextElementSibling; if (subList && subList.tagName === 'UL') { subList.classList.toggle('hidden'); } const nodeName = element.querySelector('.node-name').textContent; userSettings.subjectTreeState[nodeName] = isNowExpanded ? 'expanded' : 'collapsed'; saveUserSettings(); }
+    function expandAllNodes() { document.querySelectorAll('#subject-list .node-header').forEach(header => { header.classList.add('expanded'); if(header.nextElementSibling) header.nextElementSibling.classList.remove('hidden'); const nodeName = header.querySelector('.node-name').textContent; userSettings.subjectTreeState[nodeName] = 'expanded'; }); saveUserSettings(); }
+    function collapseAllNodes() { document.querySelectorAll('#subject-list .node-header').forEach(header => { header.classList.remove('expanded'); if(header.nextElementSibling) header.nextElementSibling.classList.add('hidden'); const nodeName = header.querySelector('.node-name').textContent; userSettings.subjectTreeState[nodeName] = 'collapsed'; }); saveUserSettings(); }
+    function showSubjectForm(subjectId = null) { const isEditing = !!subjectId; const subject = isEditing ? allSubjects.find(s => s.id === subjectId) : {}; const modalContainer = document.getElementById('modal-container'); modalContainer.innerHTML = `<div class="modal-backdrop" onclick="closeModal()"></div><div class="modal"><h3>${isEditing ? '과목 수정' : '새 과목 추가'}</h3><div class="form-group"><label for="subject-discipline">학문 (예: 응급구조사, 자격증)</label><input type="text" id="subject-discipline" value="${subject.discipline || ''}" list="disciplines-list"><datalist id="disciplines-list">${[...new Set(allSubjects.map(s => s.discipline).filter(Boolean))].map(d => `<option value="${d}"></option>`).join('')}</datalist></div><div class="form-group"><label for="subject-semester">학기 (선택 사항, 예: 1-2, 2-1)</label><input type="text" id="subject-semester" value="${subject.semester || ''}"></div><div class="form-group"><label for="subject-name">과목명</label><input type="text" id="subject-name" value="${subject.name || ''}"></div><div style="display: flex; gap: 10px;"><button class="button light-button" onclick="closeModal()">취소</button><button class="button primary-button" onclick="saveSubject('${subjectId || ''}')">저장</button></div></div>`; }
+    function closeModal() { document.getElementById('modal-container').innerHTML = ''; }
+    async function saveSubject(subjectId) { const data = { name: document.getElementById('subject-name').value.trim(), discipline: document.getElementById('subject-discipline').value.trim(), semester: document.getElementById('subject-semester').value.trim() }; if (!data.name || !data.discipline) { showFeedback('학문과 과목명은 필수입니다.'); return; } try { if (subjectId) { await db.collection('subjects').doc(subjectId).update(data); showFeedback('과목이 수정되었습니다.', 'success'); } else { data.questionCount = 0; await db.collection('subjects').add(data); showFeedback('새 과목이 추가되었습니다.', 'success'); } closeModal(); await loadSubjects(); } catch (error) { console.error("과목 저장 중 오류:", error); showFeedback('과목 저장 중 오류가 발생했습니다.'); } }
+    async function deleteSubject(subjectId, subjectName) { if (!confirm(`'${subjectName}' 과목과 모든 문제를 삭제합니다. 계속하시겠습니까?`)) return; try { const questionsSnapshot = await db.collection('subjects').doc(subjectId).collection('questions').get(); const batch = db.batch(); questionsSnapshot.forEach(doc => batch.delete(doc.ref)); const subjectRef = db.collection('subjects').doc(subjectId); batch.delete(subjectRef); await batch.commit(); showFeedback(`'${subjectName}' 과목이 삭제되었습니다.`, 'success'); await loadSubjects(); } catch (error) { console.error("과목 삭제 중 오류:", error); showFeedback('과목 삭제 중 오류가 발생했습니다.'); } }
+    
+    function saveDefaultTreeState() {
+        const selectedState = document.querySelector('input[name="tree-default-state"]:checked').value;
+        userSettings.subjectTreeDefaultState = selectedState;
+        userSettings.subjectTreeState = {}; 
+        saveUserSettings();
+        closeModal();
+        renderSubjectTree();
+        showFeedback('기본 보기 설정이 저장되었습니다.', 'success');
+    }
+        
+    // ==================================
+    // ## 문제 관리(Management View) 함수 ##
+    // ==================================
+    async function manageSubject(id) { const doc = await db.collection('subjects').doc(id).get(); if (!doc.exists) { showFeedback("과목 정보를 찾을 수 없습니다."); return; } currentSubjectId = id; currentSubjectData = doc.data(); await showManagementView(true); }
+    function setLearningMode(mode) { currentLearningMode = mode; showManagementView(false); }
+    async function showManagementView(fetchData = false) {
+        showView('management-view');
+        document.getElementById('management-header').textContent = `[${currentSubjectData.name}] 문제 관리`;
+        const container = document.getElementById('question-list-container');
+        document.getElementById('learning-mode-selector').innerHTML = `<button class="button ${currentLearningMode === 'list' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('list')">전체 목록</button><button class="button ${currentLearningMode === 'topic' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('topic')">목차별</button><button class="button ${currentLearningMode === 'exam' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('exam')">회차별</button><button class="button ${currentLearningMode === 'keyword' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('keyword')">키워드별</button>`;
+        if (fetchData) {
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: #888;">문제 목록 로딩 중...</div>';
+            const snapshot = await db.collection('subjects').doc(currentSubjectId).collection('questions').get();
+            allSubjectsForSubject = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        }
+        container.innerHTML = ''; container.className = '';
+        if (allSubjectsForSubject.length === 0) { container.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">등록된 문제가 없습니다.</p>'; return; }
+        if (currentLearningMode === 'list') {
+            renderProblemList(container, allSubjectsForSubject);
+        } else {
+            container.className = 'split-view';
+            container.innerHTML = `<div id="tree-panel"></div><div id="problem-list-panel"><p style="color:#888; text-align:center;">← 왼쪽에서 항목을 선택하세요.</p></div>`;
+            let levels;
+            if (currentLearningMode === 'topic') { levels = ['part', 'chapter', 'section']; }
+            else if (currentLearningMode === 'exam') { levels = ['examYear', 'examRound', 'examNumber']; }
+            else if (currentLearningMode === 'keyword') { levels = ['keywords', 'tags', 'metatags']; }
+            const treeData = buildTreeData(allSubjectsForSubject, levels);
+            renderTree(treeData, levels);
+        }
+    }
+    function renderProblemList(container, questions) {
+        container.innerHTML = '';
+        const listContainer = document.createElement('div');
+        if (container.id === 'question-list-container') { listContainer.style.border = '1px solid #eee'; listContainer.style.borderRadius = '8px'; }
+        questions.sort((a,b) => (a.text || '').localeCompare(b.text || '')).forEach(q => {
+            const item = document.createElement('div'); item.className = 'question-item';
+            item.innerHTML = `<div class="question-item-text" onclick="showFullEditView('${q.id}')">${q.text}</div><div class="question-item-actions"><button class="button light-button small-button" onclick="showFullEditView('${q.id}')">수정</button><button class="button light-button small-button" onclick="deleteProblem('${q.id}')">삭제</button></div>`;
+            listContainer.appendChild(item);
+        });
+        container.appendChild(listContainer);
+    }
+    function buildTreeData(questions, levels) { const tree = {}; questions.forEach(q => { let currentLevel = tree; levels.forEach((levelKey) => { const isArray = Array.isArray(q[levelKey]); const values = isArray ? (q[levelKey] || []) : [q[levelKey] || `미지정`]; if (values.length === 0 && isArray) { values.push('미지정'); } values.forEach(value => { if (!currentLevel[value]) { currentLevel[value] = { _children: {} }; } currentLevel = currentLevel[value]._children; }); }); }); return tree; }
+    function renderTree(treeData, levels, level = 0, path = []) { const panel = document.getElementById('tree-panel'); if (level === 0) panel.innerHTML = ''; let html = '<ul>'; for (const key of Object.keys(treeData).sort()) { const currentPath = [...path, {key}]; const pathStr = JSON.stringify(currentPath).replace(/'/g, "&apos;"); html += `<li><div class="node" onclick='renderProblemListForNode(this, ${pathStr})'><span class="node-icon">▶</span>${key}</div>`; const children = treeData[key]._children; if (Object.keys(children).length > 0) { html += `<ul class="collapsed">${renderTree(children, levels, level + 1, currentPath)}</ul>`; } html += `</li>`; } html += '</ul>'; if (level === 0) { panel.innerHTML = html; panel.onclick = function(e) { if(e.target.classList.contains('node-icon') || e.target.classList.contains('node')) { const nodeDiv = e.target.closest('.node'); const subList = nodeDiv.nextElementSibling; if(subList && subList.tagName === 'UL') { subList.classList.toggle('collapsed'); nodeDiv.classList.toggle('expanded'); } } }; } return html; }
+    function renderProblemListForNode(element, path) {
+        document.querySelectorAll('#tree-panel .node').forEach(node => node.classList.remove('selected'));
+        if (element) element.classList.add('selected');
+        const panel = document.getElementById('problem-list-panel');
+        const levels = { topic: ['part', 'chapter', 'section'], exam: ['examYear', 'examRound', 'examNumber'], keyword: ['keywords', 'tags', 'metatags'] }[currentLearningMode];
+        const filteredQuestions = allSubjectsForSubject.filter(q => { return path.every((p, i) => { const levelKey = levels[i]; const value = q[levelKey]; return Array.isArray(value) ? (value || []).includes(p.key) : (value || '미지정') === p.key; }); });
+        renderProblemList(panel, filteredQuestions);
+    }
+    function showFullEditView(questionId = null) {
+        showView('add-edit-view');
+        const isEditing = !!questionId;
+        const q = isEditing ? allSubjectsForSubject.find(q => q.id === questionId) : {};
+        document.getElementById('add-edit-header').textContent = isEditing ? '문제 수정' : '새 문제 추가';
+        document.getElementById('editing-question-id').value = q.id || '';
+        const fields = ['part', 'chapter', 'section', 'examYear', 'examRound', 'examNumber', 'text-full', 'answer-full', 'explanation-full'];
+        fields.forEach(f => { const el = document.getElementById(`q-${f.replace('-full','')}`); if (el) el.value = q[f.replace('-full','')] || ''; });
+        ['option', 'keyword', 'tag', 'metatag'].forEach(type => { const container = document.getElementById(`q-${type}s-container`); container.innerHTML = ''; const items = q[type + 's'] || []; if (items.length === 0) { addDynamicField(type, ''); } else { items.forEach(val => addDynamicField(type, val)); } });
+        document.getElementById('save-full-btn').onclick = () => saveFullUpdate(questionId);
+    }
+    function addDynamicField(type, value = '') { const container = document.getElementById(`q-${type}s-container`); if (!container) return; const newField = document.createElement('div'); newField.className = 'dynamic-field-group'; const count = container.children.length + 1; const placeholderText = type.charAt(0).toUpperCase() + type.slice(1); newField.innerHTML = `<span class="field-label">${count}.</span><input type="text" class="q-${type}" value="${value}" placeholder="${placeholderText}"><button class="remove-btn" onclick="this.parentElement.remove()">X</button>`; container.appendChild(newField); }
+    async function saveFullUpdate(questionId) {
+        const data = {
+            part: document.getElementById('q-part').value.trim(), chapter: document.getElementById('q-chapter').value.trim(), section: document.getElementById('q-section').value.trim(),
+            examYear: document.getElementById('q-examYear').value.trim(), examRound: document.getElementById('q-examRound').value.trim(), examNumber: document.getElementById('q-examNumber').value.trim(),
+            text: document.getElementById('q-text-full').value.trim(), answer: document.getElementById('q-answer-full').value.trim(), explanation: document.getElementById('q-explanation-full').value.trim(),
+            keywords: Array.from(document.querySelectorAll('.q-keyword')).map(i => i.value.trim()).filter(Boolean), tags: Array.from(document.querySelectorAll('.q-tag')).map(i => i.value.trim()).filter(Boolean), metatags: Array.from(document.querySelectorAll('.q-metatag')).map(i => i.value.trim()).filter(Boolean), options: Array.from(document.querySelectorAll('.q-option')).map(i => i.value.trim()).filter(Boolean)
+        };
+        if (!data.text || !data.answer) { showFeedback("문제 내용과 정답은 필수입니다."); return; }
+        try { const subjectRef = db.collection('subjects').doc(currentSubjectId); if (questionId) { await subjectRef.collection('questions').doc(questionId).update(data); showFeedback("문제가 수정되었습니다.", "success"); } else { await subjectRef.collection('questions').add(data); await db.runTransaction(async t => { const doc = await t.get(subjectRef); t.update(subjectRef, { questionCount: (doc.data().questionCount || 0) + 1 }); }); showFeedback("새 문제가 추가되었습니다.", 'success'); } await showManagementView(true); } catch (error) { console.error(error); showFeedback("저장 중 오류가 발생했습니다."); }
+    }
+    async function deleteProblem(questionId) { if (!confirm("정말로 이 문제를 삭제하시겠습니까?")) return; try { const subjectRef = db.collection('subjects').doc(currentSubjectId); await subjectRef.collection('questions').doc(questionId).delete(); await db.runTransaction(async t => { const doc = await t.get(subjectRef); t.update(subjectRef, { questionCount: Math.max(0, (doc.data().questionCount || 1) - 1) }); }); showFeedback("문제가 삭제되었습니다.", "success"); await showManagementView(true); } catch(error) { console.error(error); showFeedback("문제 삭제 중 오류 발생"); } }
+
+    // ==================================
+    // ## 퀴즈 실행 함수 ##
+    // ==================================
+    async function startQuiz(id) {
+        const doc = await db.collection('subjects').doc(id).get();
+        if (!doc.exists) { showFeedback("과목 정보를 찾을 수 없습니다."); return; }
+        currentSubjectId = id;
+        currentSubjectData = doc.data();
+
+        const snapshot = await db.collection('subjects').doc(currentSubjectId).collection('questions').get();
+        if (snapshot.empty) {
+            showFeedback('퀴즈를 시작하려면 최소 1개 이상의 문제가 필요합니다.');
+            return;
+        }
+        
+        quizQuestions = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort(() => 0.5 - Math.random());
+        currentQuizIndex = 0;
+        quizScore = 0;
+        selectedOption = null;
+        
+        showView('quiz-view');
+        displayCurrentQuiz();
+    }
+    
+    function displayCurrentQuiz() {
+        const quizView = document.getElementById('quiz-view');
+        
+        if (currentQuizIndex >= quizQuestions.length) {
+            quizView.innerHTML = `
+                <div class="final-result">
+                    <h2>🎉 퀴즈가 끝났습니다!</h2>
+                    <p>총 ${quizQuestions.length}문제 중 <strong>${quizScore}개</strong>를 맞히셨습니다.</p>
+                </div>
+                <button class="button primary-button" onclick="showView('subject-view')">과목 선택으로 돌아가기</button>
+            `;
+            return;
+        }
+
+        const q = quizQuestions[currentQuizIndex];
+        const optionsHTML = (q.options && q.options.length > 0) 
+            ? q.options.map(opt => `<div class="option">${opt}</div>`).join('')
+            : '<div class="form-group"><label for="subjective-answer">정답 입력:</label><input type="text" id="subjective-answer"></div>';
+
+        quizView.innerHTML = `
+            <div id="quiz-header">${currentQuizIndex + 1} / ${quizQuestions.length}</div>
+            <div id="quiz-body">
+                <h4>${q.text}</h4>
+                <div class="options-container">${optionsHTML}</div>
+            </div>
+            <div id="quiz-footer">
+                <div id="immediate-feedback"></div>
+                <button id="submit-btn" class="button primary-button">정답 확인</button>
+                <button class="button light-button" onclick="showView('subject-view')">↩️ 퀴즈 중단</button>
+            </div>
+        `;
+
+        // 이벤트 리스너 연결
+        quizView.querySelectorAll('.option').forEach(el => {
+            el.addEventListener('click', (e) => {
+                quizView.querySelectorAll('.option').forEach(opt => opt.classList.remove('selected'));
+                e.currentTarget.classList.add('selected');
+                selectedOption = e.currentTarget.textContent;
+            });
+        });
+
+        document.getElementById('submit-btn').addEventListener('click', submitAnswer);
+    }
+    
+    function submitAnswer() {
+        const q = quizQuestions[currentQuizIndex];
+        const feedbackDiv = document.getElementById('immediate-feedback');
+        let userAnswer;
+
+        if (q.options && q.options.length > 0) { // 객관식
+            const selectedEl = document.querySelector('.option.selected');
+            if (!selectedEl) { showFeedback("보기를 선택해주세요."); return; }
+            userAnswer = selectedEl.textContent;
+        } else { // 주관식
+            const inputEl = document.getElementById('subjective-answer');
+            if (!inputEl.value.trim()) { showFeedback("정답을 입력해주세요."); return; }
+            userAnswer = inputEl.value.trim();
+        }
+
+        const isCorrect = userAnswer === q.answer;
+        if (isCorrect) {
+            quizScore++;
+            feedbackDiv.className = 'feedback correct';
+            feedbackDiv.innerHTML = `<p>정답입니다!</p>`;
+        } else {
+            feedbackDiv.className = 'feedback incorrect';
+            feedbackDiv.innerHTML = `<p>오답입니다. (정답: ${q.answer})</p>`;
+        }
+
+        if(q.explanation) {
+            feedbackDiv.innerHTML += `<div class="explanation">${q.explanation}</div>`;
+        }
+
+        // 버튼 상태 변경
+        document.getElementById('submit-btn').textContent = '다음 문제 →';
+        document.getElementById('submit-btn').onclick = () => {
+            currentQuizIndex++;
+            displayCurrentQuiz();
+        };
+    }
+    
+</script>
+</body>
+</html>
