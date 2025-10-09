@@ -149,6 +149,8 @@
     let currentLearningMode = 'list';
     let currentSubjectId, currentSubjectData, allQuestionsForSubject = [];
     let quizQuestions = [], selectedOption, currentQuizIndex = 0, quizScore = 0;
+    let currentPage = 1;
+    const itemsPerPage = 20;
 
     // ==================================
     // ## 앱 초기화 및 화면 렌더링 ##
@@ -156,10 +158,60 @@
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('auth-container').innerHTML = `<span id="user-email"></span><div id="logged-out-view"><button class="button light-button" onclick="showView('login-view')">로그인</button><button class="button primary-button" onclick="showView('signup-view')">회원가입</button></div><div id="logged-in-view" class="hidden"><button class="button secondary-button" onclick="logOut()">로그아웃</button></div>`;
         document.getElementById('subject-view').innerHTML = `<h2>과목 선택</h2><div id="subject-controls"><div id="subject-tree-actions"><button class="button light-button small-button" onclick="expandAllNodes()">모두 펼치기</button><button class="button light-button small-button" onclick="collapseAllNodes()">모두 접기</button><button class="icon-button" onclick="showTreeSettingsModal()" title="기본 보기 설정">⚙️</button></div><input type="search" id="subject-search" placeholder="학문/학기/과목명 검색..." onkeyup="filterSubjectTree()"></div><div id="subject-list" style="border: 1px solid #eee; border-radius: 8px; padding: 10px;"></div><button class="button primary-button" onclick="showSubjectForm()">+ 새 과목 추가</button>`;
-        document.getElementById('management-view').innerHTML = `<h2 id="management-header"></h2><div class="management-controls"><div class="learning-mode-selector" id="learning-mode-selector"></div><button class="button primary-button" style="margin-top:0; width: auto;" onclick="showFullEditView()">+ 새 문제 추가</button></div><div id="question-list-container"></div><button class="button light-button" onclick="showView('subject-view')" style="margin-top: 20px;">↩️ 과목 선택으로</button>`;
+        
+        // ✨ 페이지 번호가 표시될 div 추가
+        document.getElementById('management-view').innerHTML = `<h2 id="management-header"></h2><div class="management-controls"><div class="learning-mode-selector" id="learning-mode-selector"></div><button class="button primary-button" style="margin-top:0; width: auto;" onclick="showFullEditView()">+ 새 문제 추가</button></div><div id="question-list-container"></div><div id="pagination-container" style="text-align: center; margin-top: 20px;"></div><button class="button light-button" onclick="showView('subject-view')" style="margin-top: 20px;">↩️ 과목 선택으로</button>`;
+        
         document.getElementById('login-view').innerHTML = `<h2>로그인</h2><div class="form-group"><label for="login-email">이메일</label><input type="email" id="login-email"></div><div class="form-group"><label for="login-password">비밀번호</label><input type="password" id="login-password"></div><button class="button primary-button" onclick="logIn()">로그인</button><button class="button light-button" onclick="showView('subject-view')">취소</button>`;
         document.getElementById('signup-view').innerHTML = `<h2>회원가입</h2><div class="form-group"><label for="signup-email">이메일</label><input type="email" id="signup-email"></div><div class="form-group"><label for="signup-password">비밀번호</label><input type="password" id="signup-password"></div><button class="button primary-button" onclick="signUp()">회원가입</button><button class="button light-button" onclick="showView('subject-view')">취소</button>`;
-        document.getElementById('add-edit-view').innerHTML = `<h2 id="add-edit-header"></h2><input type="hidden" id="editing-question-id"><h4>1. 문제 정보 (필수)</h4><div class="form-group"><label for="q-text-full">문제 내용</label><textarea id="q-text-full" rows="3"></textarea></div><div class="form-group"><label for="q-answer-full">정답</label><input type="text" id="q-answer-full"></div><div class="form-group"><label for="q-explanation-full">해설</label><textarea id="q-explanation-full" rows="3"></textarea></div><hr><h4>2. 목차 정보 (이론 학습용)</h4><div class="form-group"><label for="q-part">대분류</label><input type="text" id="q-part" placeholder="예: 1과목 데이터베이스"></div><div class="form-group"><label for="q-chapter">중분류</label><input type="text" id="q-chapter" placeholder="예: 1장 정규화"></div><div class="form-group"><label for="q-section">소분류</label><input type="text" id="q-section" placeholder="예: 1절 BCNF"></div><hr><h4>3. 기출 정보 (실전 학습용)</h4><div class="form-group"><label for="q-examYear">연도</label><input type="text" id="q-examYear" placeholder="예: 2024"></div><div class="form-group"><label for="q-examRound">회차</label><input type="text" id="q-examRound" placeholder="예: 1회"></div><div class="form-group"><label for="q-examNumber">문제 번호</label><input type="text" id="q-examNumber" placeholder="예: 45번"></div><hr><h4>4. 객관식 보기 (선택)</h4><div class="form-group"><div id="q-options-container"></div><button class="button light-button small-button" onclick="addDynamicField('option')">+ 보기 추가</button></div><hr><h4>5. 개념 분석 (키워드/태그)</h4><div class="form-group"><label>키워드</label><div id="q-keywords-container"></div><button class="button light-button small-button" onclick="addDynamicField('keyword')">+ 키워드 추가</button></div><div class="form-group"><label>태그</label><div id="q-tags-container"></div><button class="button light-button small-button" onclick="addDynamicField('tag')">+ 태그 추가</button></div><div class="form-group"><label>메타태그</label><div id="q-metatags-container"></div><button class="button light-button small-button" onclick="addDynamicField('metatag')">+ 메타태그 추가</button></div><hr><div style="display:flex; gap: 10px;"><button class="button light-button" onclick="showManagementView(false)">취소</button><button id="save-full-btn" class="button primary-button">저장</button></div>`;
+        document.getElementById('add-edit-view').innerHTML = `<h2 id="add-edit-header"></h2>
+<input type="hidden" id="editing-question-id">
+<h4>1. 문제 정보 (필수)</h4>
+<div class="form-group">
+    <label for="q-text-full">문제 내용</label>
+    <textarea id="q-text-full" rows="3"></textarea>
+</div>
+<div class="form-group">
+    <label for="q-answer-full">정답</label>
+    <input type="text" id="q-answer-full">
+</div>
+<div class="form-group">
+    <label for="q-explanation-full">해설</label>
+    <textarea id="q-explanation-full" rows="3"></textarea>
+</div>
+<hr>
+<h4>2. 목차 정보 (10단계)</h4>
+<div class="form-group"><label for="q-level1">1단계</label><input type="text" id="q-level1"></div>
+<div class="form-group"><label for="q-level2">2단계</label><input type="text" id="q-level2"></div>
+<div class="form-group"><label for="q-level3">3단계</label><input type="text" id="q-level3"></div>
+<div class="form-group"><label for="q-level4">4단계</label><input type="text" id="q-level4"></div>
+<div class="form-group"><label for="q-level5">5단계</label><input type="text" id="q-level5"></div>
+<div class="form-group"><label for="q-level6">6단계</label><input type="text" id="q-level6"></div>
+<div class="form-group"><label for="q-level7">7단계</label><input type="text" id="q-level7"></div>
+<div class="form-group"><label for="q-level8">8단계</label><input type="text" id="q-level8"></div>
+<div class="form-group"><label for="q-level9">9단계</label><input type="text" id="q-level9"></div>
+<div class="form-group"><label for="q-level10">10단계</label><input type="text" id="q-level10"></div>
+<hr>
+<h4>3. 기출 정보 (실전 학습용)</h4>
+<div class="form-group"><label for="q-examYear">연도</label><input type="text" id="q-examYear" placeholder="예: 2024"></div>
+<div class="form-group"><label for="q-examRound">회차</label><input type="text" id="q-examRound" placeholder="예: 1회"></div>
+<div class="form-group"><label for="q-examNumber">문제 번호</label><input type="text" id="q-examNumber" placeholder="예: 45번"></div>
+<hr>
+<h4>4. 객관식 보기 (선택)</h4>
+<div class="form-group">
+    <div id="q-options-container"></div>
+    <button class="button light-button small-button" onclick="addDynamicField('option')">+ 보기 추가</button>
+</div>
+<hr>
+<h4>5. 개념 분석 (키워드/태그)</h4>
+<div class="form-group"><label>키워드</label><div id="q-keywords-container"></div><button class="button light-button small-button" onclick="addDynamicField('keyword')">+ 키워드 추가</button></div>
+<div class="form-group"><label>태그</label><div id="q-tags-container"></div><button class="button light-button small-button" onclick="addDynamicField('tag')">+ 태그 추가</button></div>
+<div class="form-group"><label>메타태그</label><div id="q-metatags-container"></div><button class="button light-button small-button" onclick="addDynamicField('metatag')">+ 메타태그 추가</button></div>
+<hr>
+<div style="display:flex; gap: 10px;">
+    <button class="button light-button" onclick="showManagementView(false)">취소</button>
+    <button id="save-full-btn" class="button primary-button">저장</button>
+</div>`;
 
         auth.onAuthStateChanged((user) => {
             const authContainer = document.getElementById('auth-container');
@@ -190,24 +242,31 @@
     // ## 인증 및 앱 시작 함수 ##
     // ==================================
     async function initializeApp(user) {
+        console.log("-> 1. initializeApp 시작");
         await loadUserSettings(user.uid);
+        console.log("-> 4. loadUserSettings 완료. 다음으로 loadSubjects 시작.");
         await loadSubjects();
+        console.log("-> 5. loadSubjects 완료.");
         showView('subject-view');
     }
 
     async function loadUserSettings(userId) {
+        console.log("-> 2. loadUserSettings 시작 (사용자 ID:", userId, ")");
         const userDocRef = db.collection('users').doc(userId);
         try {
             const doc = await userDocRef.get();
+            console.log("-> 3. Firestore 'users' 컬렉션 조회 시도 완료.");
             if (doc.exists && doc.data().settings) {
+                console.log("   - 결과: DB에서 설정 발견.", doc.data().settings);
                 userSettings = doc.data().settings;
                 if (!userSettings.subjectTreeState) userSettings.subjectTreeState = {};
                 if (!userSettings.subjectTreeDefaultState) userSettings.subjectTreeDefaultState = 'expanded';
             } else {
+                console.log("   - 결과: DB에 사용자 문서 또는 settings 필드가 없음. 기본값 사용.");
                 userSettings = { subjectTreeState: {}, subjectTreeDefaultState: 'expanded' };
             }
         } catch (error) {
-            console.error("사용자 설정 로딩 중 오류:", error);
+            console.error("   - 에러: 사용자 설정 로딩 중 심각한 오류 발생:", error);
             userSettings = { subjectTreeState: {}, subjectTreeDefaultState: 'expanded' };
         }
     }
@@ -277,58 +336,140 @@
     function closeModal() { document.getElementById('modal-container').innerHTML = ''; }
     async function saveSubject(subjectId) { const data = { name: document.getElementById('subject-name').value.trim(), discipline: document.getElementById('subject-discipline').value.trim(), semester: document.getElementById('subject-semester').value.trim() }; if (!data.name || !data.discipline) { showFeedback('학문과 과목명은 필수입니다.'); return; } try { if (subjectId) { await db.collection('subjects').doc(subjectId).update(data); showFeedback('과목이 수정되었습니다.', 'success'); } else { data.questionCount = 0; await db.collection('subjects').add(data); showFeedback('새 과목이 추가되었습니다.', 'success'); } closeModal(); await loadSubjects(); } catch (error) { console.error("과목 저장 중 오류:", error); showFeedback('과목 저장 중 오류가 발생했습니다.'); } }
     async function deleteSubject(subjectId, subjectName) { if (!confirm(`'${subjectName}' 과목과 모든 문제를 삭제합니다. 계속하시겠습니까?`)) return; try { const questionsSnapshot = await db.collection('subjects').doc(subjectId).collection('questions').get(); const batch = db.batch(); questionsSnapshot.forEach(doc => batch.delete(doc.ref)); const subjectRef = db.collection('subjects').doc(subjectId); batch.delete(subjectRef); await batch.commit(); showFeedback(`'${subjectName}' 과목이 삭제되었습니다.`, 'success'); await loadSubjects(); } catch (error) { console.error("과목 삭제 중 오류:", error); showFeedback('과목 삭제 중 오류가 발생했습니다.'); } }
-    
+    function showTreeSettingsModal() { const modalContainer = document.getElementById('modal-container'); const isDefaultExpanded = userSettings.subjectTreeDefaultState === 'expanded'; modalContainer.innerHTML = `<div class="modal-backdrop" onclick="closeModal()"></div><div class="modal"><h3>과목 트리 기본 보기 설정</h3><div class="form-group"><label><input type="radio" name="tree-default-state" value="expanded" ${isDefaultExpanded ? 'checked' : ''}> 모두 펼치기</label><label><input type="radio" name="tree-default-state" value="collapsed" ${!isDefaultExpanded ? 'checked' : ''}> 모두 접기</label></div><div style="display: flex; gap: 10px;"><button class="button light-button" onclick="closeModal()">취소</button><button class="button primary-button" onclick="saveDefaultTreeState()">저장</button></div></div>`; }
     function saveDefaultTreeState() {
-        const selectedState = document.querySelector('input[name="tree-default-state"]:checked').value;
-        userSettings.subjectTreeDefaultState = selectedState;
-        userSettings.subjectTreeState = {}; 
-        saveUserSettings();
-        closeModal();
-        renderSubjectTree();
-        showFeedback('기본 보기 설정이 저장되었습니다.', 'success');
-    }
+    const selectedState = document.querySelector('input[name="tree-default-state"]:checked').value;
+    userSettings.subjectTreeDefaultState = selectedState;
+
+    // '전체 설정'을 새로 저장할 때, 기존의 모든 '개별 기억'을 초기화합니다.
+    userSettings.subjectTreeState = {}; 
+
+    saveUserSettings(); // 초기화된 상태까지 함께 DB에 저장합니다.
+    closeModal();
+    renderSubjectTree(); // 즉시 화면에 반영합니다.
+    showFeedback('기본 보기 설정이 저장되었습니다.', 'success');
+}
         
     // ==================================
     // ## 문제 관리(Management View) 함수 ##
     // ==================================
-    async function manageSubject(id) { const doc = await db.collection('subjects').doc(id).get(); if (!doc.exists) { showFeedback("과목 정보를 찾을 수 없습니다."); return; } currentSubjectId = id; currentSubjectData = doc.data(); await showManagementView(true); }
-    function setLearningMode(mode) { currentLearningMode = mode; showManagementView(false); }
+    async function manageSubject(id) {
+        const doc = await db.collection('subjects').doc(id).get();
+        if (!doc.exists) { showFeedback("과목 정보를 찾을 수 없습니다."); return; }
+        currentSubjectId = id;
+        currentSubjectData = doc.data();
+        currentPage = 1; // ✨ 과목 선택 시 항상 첫 페이지로 초기화
+        await showManagementView(true);
+    }
+
+    function setLearningMode(mode) {
+        currentLearningMode = mode;
+        currentPage = 1; // ✨ 학습 모드 변경 시 항상 첫 페이지로 초기화
+        showManagementView(false);
+    }
+    
     async function showManagementView(fetchData = false) {
         showView('management-view');
         document.getElementById('management-header').textContent = `[${currentSubjectData.name}] 문제 관리`;
         const container = document.getElementById('question-list-container');
         document.getElementById('learning-mode-selector').innerHTML = `<button class="button ${currentLearningMode === 'list' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('list')">전체 목록</button><button class="button ${currentLearningMode === 'topic' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('topic')">목차별</button><button class="button ${currentLearningMode === 'exam' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('exam')">회차별</button><button class="button ${currentLearningMode === 'keyword' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('keyword')">키워드별</button>`;
+        
         if (fetchData) {
             container.innerHTML = '<div style="text-align: center; padding: 20px; color: #888;">문제 목록 로딩 중...</div>';
             const snapshot = await db.collection('subjects').doc(currentSubjectId).collection('questions').get();
-            allSubjectsForSubject = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            allQuestionsForSubject = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
+
         container.innerHTML = ''; container.className = '';
-        if (allSubjectsForSubject.length === 0) { container.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">등록된 문제가 없습니다.</p>'; return; }
+        document.getElementById('pagination-container').innerHTML = '';
+
+        if (allQuestionsForSubject.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">등록된 문제가 없습니다.</p>';
+            return;
+        }
+
         if (currentLearningMode === 'list') {
-            renderProblemList(container, allSubjectsForSubject);
+            renderProblemList(container, allQuestionsForSubject);
+            renderPagination(allQuestionsForSubject.length);
         } else {
             container.className = 'split-view';
             container.innerHTML = `<div id="tree-panel"></div><div id="problem-list-panel"><p style="color:#888; text-align:center;">← 왼쪽에서 항목을 선택하세요.</p></div>`;
             let levels;
-            if (currentLearningMode === 'topic') { levels = ['part', 'chapter', 'section']; }
+            if (currentLearningMode === 'topic') { 
+                levels = Array.from({length: 10}, (_, i) => `level${i + 1}`); 
+            }
             else if (currentLearningMode === 'exam') { levels = ['examYear', 'examRound', 'examNumber']; }
             else if (currentLearningMode === 'keyword') { levels = ['keywords', 'tags', 'metatags']; }
-            const treeData = buildTreeData(allSubjectsForSubject, levels);
+            const treeData = buildTreeData(allQuestionsForSubject, levels);
             renderTree(treeData, levels);
         }
     }
+    
     function renderProblemList(container, questions) {
         container.innerHTML = '';
         const listContainer = document.createElement('div');
-        if (container.id === 'question-list-container') { listContainer.style.border = '1px solid #eee'; listContainer.style.borderRadius = '8px'; }
-        questions.sort((a,b) => (a.text || '').localeCompare(b.text || '')).forEach(q => {
-            const item = document.createElement('div'); item.className = 'question-item';
+        if (container.id === 'question-list-container') {
+            listContainer.style.border = '1px solid #eee';
+            listContainer.style.borderRadius = '8px';
+        }
+
+        // 페이징을 위한 데이터 슬라이싱
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const paginatedQuestions = questions.slice(startIndex, endIndex);
+
+        paginatedQuestions.sort((a,b) => (a.text || '').localeCompare(b.text || '')).forEach(q => {
+            const item = document.createElement('div');
+            item.className = 'question-item';
             item.innerHTML = `<div class="question-item-text" onclick="showFullEditView('${q.id}')">${q.text}</div><div class="question-item-actions"><button class="button light-button small-button" onclick="showFullEditView('${q.id}')">수정</button><button class="button light-button small-button" onclick="deleteProblem('${q.id}')">삭제</button></div>`;
             listContainer.appendChild(item);
         });
         container.appendChild(listContainer);
     }
+
+    function renderPagination(totalItems) {
+        const paginationContainer = document.getElementById('pagination-container');
+        paginationContainer.innerHTML = '';
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+        if (totalPages <= 1) return; // 1페이지 이하면 페이지 번호를 표시하지 않음
+
+        // 이전 페이지 버튼
+        const prevButton = document.createElement('button');
+        prevButton.textContent = '<';
+        prevButton.className = 'button light-button small-button';
+        prevButton.disabled = currentPage === 1;
+        prevButton.onclick = () => goToPage(currentPage - 1);
+        paginationContainer.appendChild(prevButton);
+
+        // 페이지 번호 버튼들
+        for (let i = 1; i <= totalPages; i++) {
+            const pageButton = document.createElement('button');
+            pageButton.textContent = i;
+            pageButton.className = 'button small-button';
+            if (i === currentPage) {
+                pageButton.classList.add('primary-button');
+            } else {
+                pageButton.classList.add('light-button');
+            }
+            pageButton.onclick = () => goToPage(i);
+            paginationContainer.appendChild(pageButton);
+        }
+
+        // 다음 페이지 버튼
+        const nextButton = document.createElement('button');
+        nextButton.textContent = '>';
+        nextButton.className = 'button light-button small-button';
+        nextButton.disabled = currentPage === totalPages;
+        nextButton.onclick = () => goToPage(currentPage + 1);
+        paginationContainer.appendChild(nextButton);
+    }
+
+    function goToPage(pageNumber) {
+        currentPage = pageNumber;
+        showManagementView(false); // 데이터를 다시 불러오지 않고 화면만 다시 그림
+    }
+    
     function buildTreeData(questions, levels) { const tree = {}; questions.forEach(q => { let currentLevel = tree; levels.forEach((levelKey) => { const isArray = Array.isArray(q[levelKey]); const values = isArray ? (q[levelKey] || []) : [q[levelKey] || `미지정`]; if (values.length === 0 && isArray) { values.push('미지정'); } values.forEach(value => { if (!currentLevel[value]) { currentLevel[value] = { _children: {} }; } currentLevel = currentLevel[value]._children; }); }); }); return tree; }
     function renderTree(treeData, levels, level = 0, path = []) { const panel = document.getElementById('tree-panel'); if (level === 0) panel.innerHTML = ''; let html = '<ul>'; for (const key of Object.keys(treeData).sort()) { const currentPath = [...path, {key}]; const pathStr = JSON.stringify(currentPath).replace(/'/g, "&apos;"); html += `<li><div class="node" onclick='renderProblemListForNode(this, ${pathStr})'><span class="node-icon">▶</span>${key}</div>`; const children = treeData[key]._children; if (Object.keys(children).length > 0) { html += `<ul class="collapsed">${renderTree(children, levels, level + 1, currentPath)}</ul>`; } html += `</li>`; } html += '</ul>'; if (level === 0) { panel.innerHTML = html; panel.onclick = function(e) { if(e.target.classList.contains('node-icon') || e.target.classList.contains('node')) { const nodeDiv = e.target.closest('.node'); const subList = nodeDiv.nextElementSibling; if(subList && subList.tagName === 'UL') { subList.classList.toggle('collapsed'); nodeDiv.classList.toggle('expanded'); } } }; } return html; }
     function renderProblemListForNode(element, path) {
@@ -336,33 +477,95 @@
         if (element) element.classList.add('selected');
         const panel = document.getElementById('problem-list-panel');
         const levels = { topic: ['part', 'chapter', 'section'], exam: ['examYear', 'examRound', 'examNumber'], keyword: ['keywords', 'tags', 'metatags'] }[currentLearningMode];
-        const filteredQuestions = allSubjectsForSubject.filter(q => { return path.every((p, i) => { const levelKey = levels[i]; const value = q[levelKey]; return Array.isArray(value) ? (value || []).includes(p.key) : (value || '미지정') === p.key; }); });
+        const filteredQuestions = allQuestionsForSubject.filter(q => { return path.every((p, i) => { const levelKey = levels[i]; const value = q[levelKey]; return Array.isArray(value) ? (value || []).includes(p.key) : (value || '미지정') === p.key; }); });
         renderProblemList(panel, filteredQuestions);
     }
     function showFullEditView(questionId = null) {
         showView('add-edit-view');
         const isEditing = !!questionId;
-        const q = isEditing ? allSubjectsForSubject.find(q => q.id === questionId) : {};
+        const q = isEditing ? allQuestionsForSubject.find(q => q.id === questionId) : {};
         document.getElementById('add-edit-header').textContent = isEditing ? '문제 수정' : '새 문제 추가';
         document.getElementById('editing-question-id').value = q.id || '';
-        const fields = ['part', 'chapter', 'section', 'examYear', 'examRound', 'examNumber', 'text-full', 'answer-full', 'explanation-full'];
-        fields.forEach(f => { const el = document.getElementById(`q-${f.replace('-full','')}`); if (el) el.value = q[f.replace('-full','')] || ''; });
-        ['option', 'keyword', 'tag', 'metatag'].forEach(type => { const container = document.getElementById(`q-${type}s-container`); container.innerHTML = ''; const items = q[type + 's'] || []; if (items.length === 0) { addDynamicField(type, ''); } else { items.forEach(val => addDynamicField(type, val)); } });
+
+        for (let i = 1; i <= 10; i++) {
+            const el = document.getElementById(`q-level${i}`);
+            if (el) el.value = q[`level${i}`] || '';
+        }
+
+        const otherFields = ['examYear', 'examRound', 'examNumber', 'text-full', 'answer-full', 'explanation-full'];
+        otherFields.forEach(f => { const el = document.getElementById(`q-${f.replace('-full','')}`); if (el) el.value = q[f.replace('-full','')] || ''; });
+        
+        ['option', 'keyword', 'tag', 'metatag'].forEach(type => { 
+            const container = document.getElementById(`q-${type}s-container`); 
+            container.innerHTML = ''; 
+            const items = q[type + 's'] || []; 
+            if (items.length === 0) { 
+                addDynamicField(type, ''); 
+            } else { 
+                items.forEach(val => addDynamicField(type, val)); 
+            } 
+        });
         document.getElementById('save-full-btn').onclick = () => saveFullUpdate(questionId);
     }
     function addDynamicField(type, value = '') { const container = document.getElementById(`q-${type}s-container`); if (!container) return; const newField = document.createElement('div'); newField.className = 'dynamic-field-group'; const count = container.children.length + 1; const placeholderText = type.charAt(0).toUpperCase() + type.slice(1); newField.innerHTML = `<span class="field-label">${count}.</span><input type="text" class="q-${type}" value="${value}" placeholder="${placeholderText}"><button class="remove-btn" onclick="this.parentElement.remove()">X</button>`; container.appendChild(newField); }
     async function saveFullUpdate(questionId) {
         const data = {
-            part: document.getElementById('q-part').value.trim(), chapter: document.getElementById('q-chapter').value.trim(), section: document.getElementById('q-section').value.trim(),
-            examYear: document.getElementById('q-examYear').value.trim(), examRound: document.getElementById('q-examRound').value.trim(), examNumber: document.getElementById('q-examNumber').value.trim(),
-            text: document.getElementById('q-text-full').value.trim(), answer: document.getElementById('q-answer-full').value.trim(), explanation: document.getElementById('q-explanation-full').value.trim(),
-            keywords: Array.from(document.querySelectorAll('.q-keyword')).map(i => i.value.trim()).filter(Boolean), tags: Array.from(document.querySelectorAll('.q-tag')).map(i => i.value.trim()).filter(Boolean), metatags: Array.from(document.querySelectorAll('.q-metatag')).map(i => i.value.trim()).filter(Boolean), options: Array.from(document.querySelectorAll('.q-option')).map(i => i.value.trim()).filter(Boolean)
+            examYear: document.getElementById('q-examYear').value.trim(), 
+            examRound: document.getElementById('q-examRound').value.trim(), 
+            examNumber: document.getElementById('q-examNumber').value.trim(),
+            text: document.getElementById('q-text-full').value.trim(), 
+            answer: document.getElementById('q-answer-full').value.trim(), 
+            explanation: document.getElementById('q-explanation-full').value.trim(),
+            keywords: Array.from(document.querySelectorAll('.q-keyword')).map(i => i.value.trim()).filter(Boolean), 
+            tags: Array.from(document.querySelectorAll('.q-tag')).map(i => i.value.trim()).filter(Boolean), 
+            metatags: Array.from(document.querySelectorAll('.q-metatag')).map(i => i.value.trim()).filter(Boolean), 
+            options: Array.from(document.querySelectorAll('.q-option')).map(i => i.value.trim()).filter(Boolean)
         };
-        if (!data.text || !data.answer) { showFeedback("문제 내용과 정답은 필수입니다."); return; }
-        try { const subjectRef = db.collection('subjects').doc(currentSubjectId); if (questionId) { await subjectRef.collection('questions').doc(questionId).update(data); showFeedback("문제가 수정되었습니다.", "success"); } else { await subjectRef.collection('questions').add(data); await db.runTransaction(async t => { const doc = await t.get(subjectRef); t.update(subjectRef, { questionCount: (doc.data().questionCount || 0) + 1 }); }); showFeedback("새 문제가 추가되었습니다.", 'success'); } await showManagementView(true); } catch (error) { console.error(error); showFeedback("저장 중 오류가 발생했습니다."); }
-    }
-    async function deleteProblem(questionId) { if (!confirm("정말로 이 문제를 삭제하시겠습니까?")) return; try { const subjectRef = db.collection('subjects').doc(currentSubjectId); await subjectRef.collection('questions').doc(questionId).delete(); await db.runTransaction(async t => { const doc = await t.get(subjectRef); t.update(subjectRef, { questionCount: Math.max(0, (doc.data().questionCount || 1) - 1) }); }); showFeedback("문제가 삭제되었습니다.", "success"); await showManagementView(true); } catch(error) { console.error(error); showFeedback("문제 삭제 중 오류 발생"); } }
 
+        for (let i = 1; i <= 10; i++) {
+            const levelValue = document.getElementById(`q-level${i}`).value.trim();
+            if (levelValue) {
+                data[`level${i}`] = levelValue;
+            }
+        }
+
+        if (!data.text || !data.answer) { showFeedback("문제 내용과 정답은 필수입니다."); return; }
+        try { 
+            const subjectRef = db.collection('subjects').doc(currentSubjectId); 
+            if (questionId) { 
+                await subjectRef.collection('questions').doc(questionId).update(data); 
+                showFeedback("문제가 수정되었습니다.", "success"); 
+            } else { 
+                await subjectRef.collection('questions').add(data); 
+                await db.runTransaction(async t => { 
+                    const doc = await t.get(subjectRef); 
+                    t.update(subjectRef, { questionCount: (doc.data().questionCount || 0) + 1 }); 
+                }); 
+                showFeedback("새 문제가 추가되었습니다.", "success"); 
+            } 
+            await showManagementView(true);
+        } catch (error) { 
+            console.error(error); 
+            showFeedback("저장 중 오류가 발생했습니다."); 
+        }
+    }
+    
+    async function deleteProblem(questionId) { 
+        if (!confirm("정말로 이 문제를 삭제하시겠습니까?")) return; 
+        try { 
+            const subjectRef = db.collection('subjects').doc(currentSubjectId); 
+            await subjectRef.collection('questions').doc(questionId).delete(); 
+            await db.runTransaction(async t => { 
+                const doc = await t.get(subjectRef); 
+                t.update(subjectRef, { questionCount: Math.max(0, (doc.data().questionCount || 1) - 1) }); 
+            }); 
+            showFeedback("문제가 삭제되었습니다.", "success"); 
+            await showManagementView(true); // 데이터를 새로고침하고 다시 그림
+        } catch(error) { 
+            console.error(error); 
+            showFeedback("문제 삭제 중 오류 발생"); 
+        } 
+    }
     // ==================================
     // ## 퀴즈 실행 함수 ##
     // ==================================
