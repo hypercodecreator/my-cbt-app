@@ -110,10 +110,47 @@
         .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 20; width: 90%; max-width: 500px; }
         .modal .form-group label { display: flex; align-items: center; gap: 8px; font-weight: normal; }
         .modal .form-group input[type="radio"] { width: auto; }
+
+        /* ✨ 반응형 디자인을 위한 미디어 쿼리 추가 ✨ */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .container { padding: 15px; }
+
+            /* 문제 관리 화면: 2분할 뷰를 수직으로 변경 */
+            #question-list-container.split-view {
+                flex-direction: column;
+            }
+            #tree-panel {
+                height: 250px; /* 모바일에서는 트리 높이 고정 */
+                min-width: unset;
+            }
+            /* 과목 선택 화면: 버튼들을 수직으로 변경 */
+            .subject-item {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            .subject-item-name-container {
+                margin-right: 0;
+                text-align: center;
+            }
+            .subject-item-buttons .button {
+                width: 100%;
+                box-sizing: border-box; /* 패딩 포함 너비 100% */
+            }
+
+            /* 퀴즈 화면: UI 요소 크기 조정 */
+            #quiz-body h4 { font-size: 1.2em; }
+            .option { padding: 12px 15px; }
+        }
+
+        #feedback-bar.success { background-color: #28a745; }
+        #feedback-bar.error { background-color: #dc3545; }
     </style>
 </head>
 <body>
     <div class="container">
+        <div id="feedback-bar" class="hidden" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; color: white; z-index: 100;"></div>
         <div id="auth-container"></div>
         <div id="subject-view" class="hidden"></div>
         <div id="management-view" class="hidden"></div>
@@ -157,7 +194,7 @@
     // ==================================
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('auth-container').innerHTML = `<span id="user-email"></span><div id="logged-out-view"><button class="button light-button" onclick="showView('login-view')">로그인</button><button class="button primary-button" onclick="showView('signup-view')">회원가입</button></div><div id="logged-in-view" class="hidden"><button class="button secondary-button" onclick="logOut()">로그아웃</button></div>`;
-        document.getElementById('subject-view').innerHTML = `<h2>과목 선택</h2><div id="subject-controls"><div id="subject-tree-actions"><button class="button light-button small-button" onclick="expandAllNodes()">모두 펼치기</button><button class="button light-button small-button" onclick="collapseAllNodes()">모두 접기</button><button class="icon-button" onclick="showTreeSettingsModal()" title="기본 보기 설정">⚙️</button></div><input type="search" id="subject-search" placeholder="학문/학기/과목명 검색..." onkeyup="filterSubjectTree()"></div><div id="subject-list" style="border: 1px solid #eee; border-radius: 8px; padding: 10px;"></div><button class="button primary-button" onclick="showSubjectForm()">+ 새 과목 추가</button>`;
+        document.getElementById('subject-view').innerHTML = `<h2>과목을 선택하세요</h2><div id="subject-controls"><div id="subject-tree-actions"><button class="button light-button small-button" onclick="expandAllNodes()">모두 펼치기</button><button class="button light-button small-button" onclick="collapseAllNodes()">모두 접기</button><button class="icon-button" onclick="showTreeSettingsModal()" title="기본 보기 설정">⚙️</button></div><input type="search" id="subject-search" placeholder="학문/학기/과목명 검색..." onkeyup="filterSubjectTree()"></div><div id="subject-list" style="border: 1px solid #eee; border-radius: 8px; padding: 10px;"></div><button class="button primary-button" onclick="showSubjectForm()">+ 새 과목 추가</button>`;
         
         // ✨ 페이지 번호가 표시될 div 추가
         document.getElementById('management-view').innerHTML = `<h2 id="management-header"></h2><div class="management-controls"><div class="learning-mode-selector" id="learning-mode-selector"></div><button class="button primary-button" style="margin-top:0; width: auto;" onclick="showFullEditView()">+ 새 문제 추가</button></div><div id="question-list-container"></div><div id="pagination-container" style="text-align: center; margin-top: 20px;"></div><button class="button light-button" onclick="showView('subject-view')" style="margin-top: 20px;">↩️ 과목 선택으로</button>`;
@@ -236,50 +273,50 @@
     // ## 핵심 유틸리티 함수 ##
     // ==================================
     function showView(viewId) { views.forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', id !== viewId); }); }
-    function showFeedback(message, type = 'error') { const feedbackBar = document.getElementById('feedback-bar'); if (!feedbackBar) return; feedbackBar.textContent = message; feedbackBar.className = type; feedbackBar.classList.remove('hidden'); setTimeout(() => feedbackBar.classList.add('hidden'), 3000); }
+
+    function showFeedback(message, type = 'error') {
+        const feedbackBar = document.getElementById('feedback-bar');
+        if (!feedbackBar) return;
+        feedbackBar.textContent = message;
+        feedbackBar.className = type;
+        setTimeout(() => { feedbackBar.className = 'hidden'; }, 3000);
+    }
     
     // ==================================
     // ## 인증 및 앱 시작 함수 ##
     // ==================================
     async function initializeApp(user) {
-        console.log("-> 1. initializeApp 시작");
         await loadUserSettings(user.uid);
-        console.log("-> 4. loadUserSettings 완료. 다음으로 loadSubjects 시작.");
         await loadSubjects();
-        console.log("-> 5. loadSubjects 완료.");
         showView('subject-view');
     }
 
     async function loadUserSettings(userId) {
-        console.log("-> 2. loadUserSettings 시작 (사용자 ID:", userId, ")");
         const userDocRef = db.collection('users').doc(userId);
         try {
             const doc = await userDocRef.get();
-            console.log("-> 3. Firestore 'users' 컬렉션 조회 시도 완료.");
             if (doc.exists && doc.data().settings) {
-                console.log("   - 결과: DB에서 설정 발견.", doc.data().settings);
                 userSettings = doc.data().settings;
                 if (!userSettings.subjectTreeState) userSettings.subjectTreeState = {};
                 if (!userSettings.subjectTreeDefaultState) userSettings.subjectTreeDefaultState = 'expanded';
             } else {
-                console.log("   - 결과: DB에 사용자 문서 또는 settings 필드가 없음. 기본값 사용.");
                 userSettings = { subjectTreeState: {}, subjectTreeDefaultState: 'expanded' };
             }
         } catch (error) {
-            console.error("   - 에러: 사용자 설정 로딩 중 심각한 오류 발생:", error);
+            console.error("사용자 설정 로딩 중 오류:", error);
             userSettings = { subjectTreeState: {}, subjectTreeDefaultState: 'expanded' };
         }
     }
         
     async function saveUserSettings() { const user = auth.currentUser; if (!user) return; const userDocRef = db.collection('users').doc(user.uid); try { await userDocRef.set({ settings: userSettings }, { merge: true }); } catch (error) { console.error("Error saving user settings:", error); } }
-    async function signUp() { try { await auth.createUserWithEmailAndPassword(document.getElementById('signup-email').value, document.getElementById('signup-password').value); } catch (e) { showFeedback(e.message); } }
-    async function logIn() { try { await auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value); } catch (e) { showFeedback(e.message); } }
+    async function signUp() { try { await auth.createUserWithEmailAndPassword(document.getElementById('signup-email').value, document.getElementById('signup-password').value); } catch (e) { showFeedback(e.message, 'error'); } }
+    async function logIn() { try { await auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value); } catch (e) { showFeedback(e.message, 'error'); } }
     function logOut() { auth.signOut(); }
     
     // ==================================
     // ## 과목 관리 함수 ##
     // ==================================
-    async function loadSubjects() {
+     async function loadSubjects() {
         const listDiv = document.getElementById('subject-list');
         listDiv.innerHTML = '과목 로딩 중...';
         try {
@@ -302,6 +339,10 @@
         let html = '<ul>';
         const sortedDisciplines = Object.keys(treeData).sort();
 
+        if (sortedDisciplines.length === 0 && !filterText) {
+            container.innerHTML = `<p style="text-align:center; color:#888; padding: 20px;">아직 등록된 과목이 없습니다. 새 과목을 추가해보세요.</p>`;
+            return;
+        }
         if (sortedDisciplines.length === 0 && filterText) {
             container.innerHTML = `<p style="text-align:center; color:#888; padding: 20px;">'${filterText}'에 대한 검색 결과가 없습니다.</p>`;
             return;
@@ -334,60 +375,37 @@
     function collapseAllNodes() { document.querySelectorAll('#subject-list .node-header').forEach(header => { header.classList.remove('expanded'); if(header.nextElementSibling) header.nextElementSibling.classList.add('hidden'); const nodeName = header.querySelector('.node-name').textContent; userSettings.subjectTreeState[nodeName] = 'collapsed'; }); saveUserSettings(); }
     function showSubjectForm(subjectId = null) { const isEditing = !!subjectId; const subject = isEditing ? allSubjects.find(s => s.id === subjectId) : {}; const modalContainer = document.getElementById('modal-container'); modalContainer.innerHTML = `<div class="modal-backdrop" onclick="closeModal()"></div><div class="modal"><h3>${isEditing ? '과목 수정' : '새 과목 추가'}</h3><div class="form-group"><label for="subject-discipline">학문 (예: 응급구조사, 자격증)</label><input type="text" id="subject-discipline" value="${subject.discipline || ''}" list="disciplines-list"><datalist id="disciplines-list">${[...new Set(allSubjects.map(s => s.discipline).filter(Boolean))].map(d => `<option value="${d}"></option>`).join('')}</datalist></div><div class="form-group"><label for="subject-semester">학기 (선택 사항, 예: 1-2, 2-1)</label><input type="text" id="subject-semester" value="${subject.semester || ''}"></div><div class="form-group"><label for="subject-name">과목명</label><input type="text" id="subject-name" value="${subject.name || ''}"></div><div style="display: flex; gap: 10px;"><button class="button light-button" onclick="closeModal()">취소</button><button class="button primary-button" onclick="saveSubject('${subjectId || ''}')">저장</button></div></div>`; }
     function closeModal() { document.getElementById('modal-container').innerHTML = ''; }
-    async function saveSubject(subjectId) { const data = { name: document.getElementById('subject-name').value.trim(), discipline: document.getElementById('subject-discipline').value.trim(), semester: document.getElementById('subject-semester').value.trim() }; if (!data.name || !data.discipline) { showFeedback('학문과 과목명은 필수입니다.'); return; } try { if (subjectId) { await db.collection('subjects').doc(subjectId).update(data); showFeedback('과목이 수정되었습니다.', 'success'); } else { data.questionCount = 0; await db.collection('subjects').add(data); showFeedback('새 과목이 추가되었습니다.', 'success'); } closeModal(); await loadSubjects(); } catch (error) { console.error("과목 저장 중 오류:", error); showFeedback('과목 저장 중 오류가 발생했습니다.'); } }
-    async function deleteSubject(subjectId, subjectName) { if (!confirm(`'${subjectName}' 과목과 모든 문제를 삭제합니다. 계속하시겠습니까?`)) return; try { const questionsSnapshot = await db.collection('subjects').doc(subjectId).collection('questions').get(); const batch = db.batch(); questionsSnapshot.forEach(doc => batch.delete(doc.ref)); const subjectRef = db.collection('subjects').doc(subjectId); batch.delete(subjectRef); await batch.commit(); showFeedback(`'${subjectName}' 과목이 삭제되었습니다.`, 'success'); await loadSubjects(); } catch (error) { console.error("과목 삭제 중 오류:", error); showFeedback('과목 삭제 중 오류가 발생했습니다.'); } }
+    async function saveSubject(subjectId) { const data = { name: document.getElementById('subject-name').value.trim(), discipline: document.getElementById('subject-discipline').value.trim(), semester: document.getElementById('subject-semester').value.trim() }; if (!data.name || !data.discipline) { showFeedback('학문과 과목명은 필수입니다.', 'error'); return; } try { if (subjectId) { await db.collection('subjects').doc(subjectId).update(data); } else { data.questionCount = 0; await db.collection('subjects').add(data); } closeModal(); await loadSubjects(); showFeedback(subjectId ? '과목이 수정되었습니다.' : '새 과목이 추가되었습니다.', 'success'); } catch (error) { console.error("과목 저장 중 오류:", error); showFeedback('과목 저장 중 오류가 발생했습니다.', 'error'); } }
+    async function deleteSubject(subjectId, subjectName) { if (!confirm(`'${subjectName}' 과목과 모든 문제를 삭제합니다. 계속하시겠습니까?`)) return; try { const questionsSnapshot = await db.collection('subjects').doc(subjectId).collection('questions').get(); const batch = db.batch(); questionsSnapshot.forEach(doc => batch.delete(doc.ref)); const subjectRef = db.collection('subjects').doc(subjectId); batch.delete(subjectRef); await batch.commit(); await loadSubjects(); showFeedback(`'${subjectName}' 과목이 삭제되었습니다.`, 'success'); } catch (error) { console.error("과목 삭제 중 오류:", error); showFeedback('과목 삭제 중 오류가 발생했습니다.', 'error'); } }
     function showTreeSettingsModal() { const modalContainer = document.getElementById('modal-container'); const isDefaultExpanded = userSettings.subjectTreeDefaultState === 'expanded'; modalContainer.innerHTML = `<div class="modal-backdrop" onclick="closeModal()"></div><div class="modal"><h3>과목 트리 기본 보기 설정</h3><div class="form-group"><label><input type="radio" name="tree-default-state" value="expanded" ${isDefaultExpanded ? 'checked' : ''}> 모두 펼치기</label><label><input type="radio" name="tree-default-state" value="collapsed" ${!isDefaultExpanded ? 'checked' : ''}> 모두 접기</label></div><div style="display: flex; gap: 10px;"><button class="button light-button" onclick="closeModal()">취소</button><button class="button primary-button" onclick="saveDefaultTreeState()">저장</button></div></div>`; }
-    function saveDefaultTreeState() {
-    const selectedState = document.querySelector('input[name="tree-default-state"]:checked').value;
-    userSettings.subjectTreeDefaultState = selectedState;
-
-    // '전체 설정'을 새로 저장할 때, 기존의 모든 '개별 기억'을 초기화합니다.
-    userSettings.subjectTreeState = {}; 
-
-    saveUserSettings(); // 초기화된 상태까지 함께 DB에 저장합니다.
-    closeModal();
-    renderSubjectTree(); // 즉시 화면에 반영합니다.
-    showFeedback('기본 보기 설정이 저장되었습니다.', 'success');
-}
+    function saveDefaultTreeState() { 
+        const selectedState = document.querySelector('input[name="tree-default-state"]:checked').value; 
+        userSettings.subjectTreeDefaultState = selectedState; 
+        userSettings.subjectTreeState = {}; 
+        saveUserSettings(); 
+        closeModal(); 
+        renderSubjectTree(); 
+        showFeedback('기본 보기 설정이 저장되었습니다.', 'success'); 
+    }
         
     // ==================================
     // ## 문제 관리(Management View) 함수 ##
     // ==================================
-    async function manageSubject(id) {
-        const doc = await db.collection('subjects').doc(id).get();
-        if (!doc.exists) { showFeedback("과목 정보를 찾을 수 없습니다."); return; }
-        currentSubjectId = id;
-        currentSubjectData = doc.data();
-        currentPage = 1; // ✨ 과목 선택 시 항상 첫 페이지로 초기화
-        await showManagementView(true);
-    }
-
-    function setLearningMode(mode) {
-        currentLearningMode = mode;
-        currentPage = 1; // ✨ 학습 모드 변경 시 항상 첫 페이지로 초기화
-        showManagementView(false);
-    }
-    
+    async function manageSubject(id) { const doc = await db.collection('subjects').doc(id).get(); if (!doc.exists) { showFeedback("과목 정보를 찾을 수 없습니다.", 'error'); return; } currentSubjectId = id; currentSubjectData = doc.data(); currentPage = 1; await showManagementView(true); }
+    function setLearningMode(mode) { currentLearningMode = mode; currentPage = 1; showManagementView(false); }
     async function showManagementView(fetchData = false) {
         showView('management-view');
         document.getElementById('management-header').textContent = `[${currentSubjectData.name}] 문제 관리`;
         const container = document.getElementById('question-list-container');
         document.getElementById('learning-mode-selector').innerHTML = `<button class="button ${currentLearningMode === 'list' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('list')">전체 목록</button><button class="button ${currentLearningMode === 'topic' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('topic')">목차별</button><button class="button ${currentLearningMode === 'exam' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('exam')">회차별</button><button class="button ${currentLearningMode === 'keyword' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('keyword')">키워드별</button>`;
-        
         if (fetchData) {
             container.innerHTML = '<div style="text-align: center; padding: 20px; color: #888;">문제 목록 로딩 중...</div>';
             const snapshot = await db.collection('subjects').doc(currentSubjectId).collection('questions').get();
             allQuestionsForSubject = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
-
         container.innerHTML = ''; container.className = '';
         document.getElementById('pagination-container').innerHTML = '';
-
-        if (allQuestionsForSubject.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">등록된 문제가 없습니다.</p>';
-            return;
-        }
-
+        if (allQuestionsForSubject.length === 0) { container.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">등록된 문제가 없습니다.</p>'; return; }
         if (currentLearningMode === 'list') {
             renderProblemList(container, allQuestionsForSubject);
             renderPagination(allQuestionsForSubject.length);
@@ -395,9 +413,7 @@
             container.className = 'split-view';
             container.innerHTML = `<div id="tree-panel"></div><div id="problem-list-panel"><p style="color:#888; text-align:center;">← 왼쪽에서 항목을 선택하세요.</p></div>`;
             let levels;
-            if (currentLearningMode === 'topic') { 
-                levels = Array.from({length: 10}, (_, i) => `level${i + 1}`); 
-            }
+            if (currentLearningMode === 'topic') { levels = Array.from({length: 10}, (_, i) => `level${i + 1}`); }
             else if (currentLearningMode === 'exam') { levels = ['examYear', 'examRound', 'examNumber']; }
             else if (currentLearningMode === 'keyword') { levels = ['keywords', 'tags', 'metatags']; }
             const treeData = buildTreeData(allQuestionsForSubject, levels);
@@ -408,19 +424,12 @@
     function renderProblemList(container, questions) {
         container.innerHTML = '';
         const listContainer = document.createElement('div');
-        if (container.id === 'question-list-container') {
-            listContainer.style.border = '1px solid #eee';
-            listContainer.style.borderRadius = '8px';
-        }
-
-        // 페이징을 위한 데이터 슬라이싱
+        if (container.id === 'question-list-container') { listContainer.style.border = '1px solid #eee'; listContainer.style.borderRadius = '8px'; }
         const startIndex = (currentPage - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
         const paginatedQuestions = questions.slice(startIndex, endIndex);
-
         paginatedQuestions.sort((a,b) => (a.text || '').localeCompare(b.text || '')).forEach(q => {
-            const item = document.createElement('div');
-            item.className = 'question-item';
+            const item = document.createElement('div'); item.className = 'question-item';
             item.innerHTML = `<div class="question-item-text" onclick="showFullEditView('${q.id}')">${q.text}</div><div class="question-item-actions"><button class="button light-button small-button" onclick="showFullEditView('${q.id}')">수정</button><button class="button light-button small-button" onclick="deleteProblem('${q.id}')">삭제</button></div>`;
             listContainer.appendChild(item);
         });
@@ -431,32 +440,21 @@
         const paginationContainer = document.getElementById('pagination-container');
         paginationContainer.innerHTML = '';
         const totalPages = Math.ceil(totalItems / itemsPerPage);
-
-        if (totalPages <= 1) return; // 1페이지 이하면 페이지 번호를 표시하지 않음
-
-        // 이전 페이지 버튼
+        if (totalPages <= 1) return;
         const prevButton = document.createElement('button');
         prevButton.textContent = '<';
         prevButton.className = 'button light-button small-button';
         prevButton.disabled = currentPage === 1;
         prevButton.onclick = () => goToPage(currentPage - 1);
         paginationContainer.appendChild(prevButton);
-
-        // 페이지 번호 버튼들
         for (let i = 1; i <= totalPages; i++) {
             const pageButton = document.createElement('button');
             pageButton.textContent = i;
             pageButton.className = 'button small-button';
-            if (i === currentPage) {
-                pageButton.classList.add('primary-button');
-            } else {
-                pageButton.classList.add('light-button');
-            }
+            if (i === currentPage) { pageButton.classList.add('primary-button'); } else { pageButton.classList.add('light-button'); }
             pageButton.onclick = () => goToPage(i);
             paginationContainer.appendChild(pageButton);
         }
-
-        // 다음 페이지 버튼
         const nextButton = document.createElement('button');
         nextButton.textContent = '>';
         nextButton.className = 'button light-button small-button';
@@ -465,164 +463,89 @@
         paginationContainer.appendChild(nextButton);
     }
 
-    function goToPage(pageNumber) {
-        currentPage = pageNumber;
-        showManagementView(false); // 데이터를 다시 불러오지 않고 화면만 다시 그림
-    }
-    
-    function buildTreeData(questions, levels) { const tree = {}; questions.forEach(q => { let currentLevel = tree; levels.forEach((levelKey) => { const isArray = Array.isArray(q[levelKey]); const values = isArray ? (q[levelKey] || []) : [q[levelKey] || `미지정`]; if (values.length === 0 && isArray) { values.push('미지정'); } values.forEach(value => { if (!currentLevel[value]) { currentLevel[value] = { _children: {} }; } currentLevel = currentLevel[value]._children; }); }); }); return tree; }
+    function goToPage(pageNumber) { currentPage = pageNumber; showManagementView(false); }
+    function buildTreeData(questions, levels) { const tree = {}; questions.forEach(q => { let currentLevel = tree; levels.forEach((levelKey) => { const value = q[levelKey] || `미지정`; if (!currentLevel[value]) { currentLevel[value] = { _children: {} }; } currentLevel = currentLevel[value]._children; }); }); return tree; }
     function renderTree(treeData, levels, level = 0, path = []) { const panel = document.getElementById('tree-panel'); if (level === 0) panel.innerHTML = ''; let html = '<ul>'; for (const key of Object.keys(treeData).sort()) { const currentPath = [...path, {key}]; const pathStr = JSON.stringify(currentPath).replace(/'/g, "&apos;"); html += `<li><div class="node" onclick='renderProblemListForNode(this, ${pathStr})'><span class="node-icon">▶</span>${key}</div>`; const children = treeData[key]._children; if (Object.keys(children).length > 0) { html += `<ul class="collapsed">${renderTree(children, levels, level + 1, currentPath)}</ul>`; } html += `</li>`; } html += '</ul>'; if (level === 0) { panel.innerHTML = html; panel.onclick = function(e) { if(e.target.classList.contains('node-icon') || e.target.classList.contains('node')) { const nodeDiv = e.target.closest('.node'); const subList = nodeDiv.nextElementSibling; if(subList && subList.tagName === 'UL') { subList.classList.toggle('collapsed'); nodeDiv.classList.toggle('expanded'); } } }; } return html; }
     function renderProblemListForNode(element, path) {
         document.querySelectorAll('#tree-panel .node').forEach(node => node.classList.remove('selected'));
         if (element) element.classList.add('selected');
         const panel = document.getElementById('problem-list-panel');
-        const levels = { topic: ['part', 'chapter', 'section'], exam: ['examYear', 'examRound', 'examNumber'], keyword: ['keywords', 'tags', 'metatags'] }[currentLearningMode];
+        const levels = { topic: Array.from({length: 10}, (_, i) => `level${i + 1}`), exam: ['examYear', 'examRound', 'examNumber'], keyword: ['keywords', 'tags', 'metatags'] }[currentLearningMode];
         const filteredQuestions = allQuestionsForSubject.filter(q => { return path.every((p, i) => { const levelKey = levels[i]; const value = q[levelKey]; return Array.isArray(value) ? (value || []).includes(p.key) : (value || '미지정') === p.key; }); });
         renderProblemList(panel, filteredQuestions);
     }
+    
     function showFullEditView(questionId = null) {
         showView('add-edit-view');
         const isEditing = !!questionId;
         const q = isEditing ? allQuestionsForSubject.find(q => q.id === questionId) : {};
         document.getElementById('add-edit-header').textContent = isEditing ? '문제 수정' : '새 문제 추가';
         document.getElementById('editing-question-id').value = q.id || '';
-
-        for (let i = 1; i <= 10; i++) {
-            const el = document.getElementById(`q-level${i}`);
-            if (el) el.value = q[`level${i}`] || '';
-        }
-
+        for (let i = 1; i <= 10; i++) { const el = document.getElementById(`q-level${i}`); if (el) el.value = q[`level${i}`] || ''; }
         const otherFields = ['examYear', 'examRound', 'examNumber', 'text-full', 'answer-full', 'explanation-full'];
         otherFields.forEach(f => { const el = document.getElementById(`q-${f.replace('-full','')}`); if (el) el.value = q[f.replace('-full','')] || ''; });
-        
-        ['option', 'keyword', 'tag', 'metatag'].forEach(type => { 
-            const container = document.getElementById(`q-${type}s-container`); 
-            container.innerHTML = ''; 
-            const items = q[type + 's'] || []; 
-            if (items.length === 0) { 
-                addDynamicField(type, ''); 
-            } else { 
-                items.forEach(val => addDynamicField(type, val)); 
-            } 
-        });
+        ['option', 'keyword', 'tag', 'metatag'].forEach(type => { const container = document.getElementById(`q-${type}s-container`); container.innerHTML = ''; const items = q[type + 's'] || []; if (items.length === 0) { addDynamicField(type, ''); } else { items.forEach(val => addDynamicField(type, val)); } });
         document.getElementById('save-full-btn').onclick = () => saveFullUpdate(questionId);
     }
     function addDynamicField(type, value = '') { const container = document.getElementById(`q-${type}s-container`); if (!container) return; const newField = document.createElement('div'); newField.className = 'dynamic-field-group'; const count = container.children.length + 1; const placeholderText = type.charAt(0).toUpperCase() + type.slice(1); newField.innerHTML = `<span class="field-label">${count}.</span><input type="text" class="q-${type}" value="${value}" placeholder="${placeholderText}"><button class="remove-btn" onclick="this.parentElement.remove()">X</button>`; container.appendChild(newField); }
+    
     async function saveFullUpdate(questionId) {
-        const data = {
-            examYear: document.getElementById('q-examYear').value.trim(), 
-            examRound: document.getElementById('q-examRound').value.trim(), 
-            examNumber: document.getElementById('q-examNumber').value.trim(),
-            text: document.getElementById('q-text-full').value.trim(), 
-            answer: document.getElementById('q-answer-full').value.trim(), 
-            explanation: document.getElementById('q-explanation-full').value.trim(),
-            keywords: Array.from(document.querySelectorAll('.q-keyword')).map(i => i.value.trim()).filter(Boolean), 
-            tags: Array.from(document.querySelectorAll('.q-tag')).map(i => i.value.trim()).filter(Boolean), 
-            metatags: Array.from(document.querySelectorAll('.q-metatag')).map(i => i.value.trim()).filter(Boolean), 
-            options: Array.from(document.querySelectorAll('.q-option')).map(i => i.value.trim()).filter(Boolean)
-        };
-
-        for (let i = 1; i <= 10; i++) {
-            const levelValue = document.getElementById(`q-level${i}`).value.trim();
-            if (levelValue) {
-                data[`level${i}`] = levelValue;
-            }
-        }
-
-        if (!data.text || !data.answer) { showFeedback("문제 내용과 정답은 필수입니다."); return; }
-        try { 
+        try {
+            const data = {
+                examYear: document.getElementById('q-examYear').value.trim(), 
+                examRound: document.getElementById('q-examRound').value.trim(), 
+                examNumber: document.getElementById('q-examNumber').value.trim(),
+                text: document.getElementById('q-text-full').value.trim(), 
+                answer: document.getElementById('q-answer-full').value.trim(), 
+                explanation: document.getElementById('q-explanation-full').value.trim(),
+                keywords: Array.from(document.querySelectorAll('.q-keyword')).map(i => i.value.trim()).filter(Boolean), 
+                tags: Array.from(document.querySelectorAll('.q-tag')).map(i => i.value.trim()).filter(Boolean), 
+                metatags: Array.from(document.querySelectorAll('.q-metatag')).map(i => i.value.trim()).filter(Boolean), 
+                options: Array.from(document.querySelectorAll('.q-option')).map(i => i.value.trim()).filter(Boolean)
+            };
+            for (let i = 1; i <= 10; i++) { const levelValue = document.getElementById(`q-level${i}`).value.trim(); if (levelValue) data[`level${i}`] = levelValue; }
+            if (!data.text || !data.answer) { showFeedback("문제 내용과 정답은 필수입니다.", "error"); return; }
             const subjectRef = db.collection('subjects').doc(currentSubjectId); 
-            if (questionId) { 
-                await subjectRef.collection('questions').doc(questionId).update(data); 
-                showFeedback("문제가 수정되었습니다.", "success"); 
-            } else { 
-                await subjectRef.collection('questions').add(data); 
-                await db.runTransaction(async t => { 
-                    const doc = await t.get(subjectRef); 
-                    t.update(subjectRef, { questionCount: (doc.data().questionCount || 0) + 1 }); 
-                }); 
-                showFeedback("새 문제가 추가되었습니다.", "success"); 
-            } 
+            if (questionId) { await subjectRef.collection('questions').doc(questionId).update(data); } else { await subjectRef.collection('questions').add(data); await db.runTransaction(async t => { const doc = await t.get(subjectRef); t.update(subjectRef, { questionCount: (doc.data().questionCount || 0) + 1 }); }); } 
+            showFeedback(questionId ? "문제가 수정되었습니다." : "새 문제가 추가되었습니다.", "success");
             await showManagementView(true);
         } catch (error) { 
-            console.error(error); 
-            showFeedback("저장 중 오류가 발생했습니다."); 
+            console.error("Firestore 저장 중 오류 발생:", error); 
+            showFeedback("저장 중 오류가 발생했습니다.", "error"); 
         }
     }
     
-    async function deleteProblem(questionId) { 
-        if (!confirm("정말로 이 문제를 삭제하시겠습니까?")) return; 
-        try { 
-            const subjectRef = db.collection('subjects').doc(currentSubjectId); 
-            await subjectRef.collection('questions').doc(questionId).delete(); 
-            await db.runTransaction(async t => { 
-                const doc = await t.get(subjectRef); 
-                t.update(subjectRef, { questionCount: Math.max(0, (doc.data().questionCount || 1) - 1) }); 
-            }); 
-            showFeedback("문제가 삭제되었습니다.", "success"); 
-            await showManagementView(true); // 데이터를 새로고침하고 다시 그림
-        } catch(error) { 
-            console.error(error); 
-            showFeedback("문제 삭제 중 오류 발생"); 
-        } 
-    }
+    async function deleteProblem(questionId) { if (!confirm("정말로 이 문제를 삭제하시겠습니까?")) return; try { const subjectRef = db.collection('subjects').doc(currentSubjectId); await subjectRef.collection('questions').doc(questionId).delete(); await db.runTransaction(async t => { const doc = await t.get(subjectRef); t.update(subjectRef, { questionCount: Math.max(0, (doc.data().questionCount || 1) - 1) }); }); showFeedback("문제가 삭제되었습니다.", "success"); await showManagementView(true); } catch(error) { console.error(error); showFeedback("문제 삭제 중 오류 발생", 'error'); } }
+
     // ==================================
     // ## 퀴즈 실행 함수 ##
     // ==================================
     async function startQuiz(id) {
         const doc = await db.collection('subjects').doc(id).get();
-        if (!doc.exists) { showFeedback("과목 정보를 찾을 수 없습니다."); return; }
+        if (!doc.exists) { showFeedback("과목 정보를 찾을 수 없습니다.", 'error'); return; }
         currentSubjectId = id;
         currentSubjectData = doc.data();
-
         const snapshot = await db.collection('subjects').doc(currentSubjectId).collection('questions').get();
-        if (snapshot.empty) {
-            showFeedback('퀴즈를 시작하려면 최소 1개 이상의 문제가 필요합니다.');
-            return;
-        }
-        
+        if (snapshot.empty) { showFeedback('퀴즈를 시작하려면 최소 1개 이상의 문제가 필요합니다.', 'error'); return; }
         quizQuestions = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort(() => 0.5 - Math.random());
         currentQuizIndex = 0;
         quizScore = 0;
         selectedOption = null;
-        
         showView('quiz-view');
         displayCurrentQuiz();
     }
     
     function displayCurrentQuiz() {
         const quizView = document.getElementById('quiz-view');
-        
         if (currentQuizIndex >= quizQuestions.length) {
-            quizView.innerHTML = `
-                <div class="final-result">
-                    <h2>🎉 퀴즈가 끝났습니다!</h2>
-                    <p>총 ${quizQuestions.length}문제 중 <strong>${quizScore}개</strong>를 맞히셨습니다.</p>
-                </div>
-                <button class="button primary-button" onclick="showView('subject-view')">과목 선택으로 돌아가기</button>
-            `;
+            quizView.innerHTML = `<div class="final-result"><h2>🎉 퀴즈가 끝났습니다!</h2><p>총 ${quizQuestions.length}문제 중 <strong>${quizScore}개</strong>를 맞히셨습니다.</p></div><button class="button primary-button" onclick="showView('subject-view')">과목 선택으로 돌아가기</button>`;
             return;
         }
-
         const q = quizQuestions[currentQuizIndex];
         const optionsHTML = (q.options && q.options.length > 0) 
             ? q.options.map(opt => `<div class="option">${opt}</div>`).join('')
             : '<div class="form-group"><label for="subjective-answer">정답 입력:</label><input type="text" id="subjective-answer"></div>';
-
-        quizView.innerHTML = `
-            <div id="quiz-header">${currentQuizIndex + 1} / ${quizQuestions.length}</div>
-            <div id="quiz-body">
-                <h4>${q.text}</h4>
-                <div class="options-container">${optionsHTML}</div>
-            </div>
-            <div id="quiz-footer">
-                <div id="immediate-feedback"></div>
-                <button id="submit-btn" class="button primary-button">정답 확인</button>
-                <button class="button light-button" onclick="showView('subject-view')">↩️ 퀴즈 중단</button>
-            </div>
-        `;
-
-        // 이벤트 리스너 연결
+        quizView.innerHTML = `<div id="quiz-header">${currentQuizIndex + 1} / ${quizQuestions.length}</div><div id="quiz-body"><h4>${q.text}</h4><div class="options-container">${optionsHTML}</div></div><div id="quiz-footer"><div id="immediate-feedback"></div><button id="submit-btn" class="button primary-button">정답 확인</button><button class="button light-button" onclick="showView('subject-view')">↩️ 퀴즈 중단</button></div>`;
         quizView.querySelectorAll('.option').forEach(el => {
             el.addEventListener('click', (e) => {
                 quizView.querySelectorAll('.option').forEach(opt => opt.classList.remove('selected'));
@@ -630,7 +553,6 @@
                 selectedOption = e.currentTarget.textContent;
             });
         });
-
         document.getElementById('submit-btn').addEventListener('click', submitAnswer);
     }
     
@@ -638,17 +560,15 @@
         const q = quizQuestions[currentQuizIndex];
         const feedbackDiv = document.getElementById('immediate-feedback');
         let userAnswer;
-
-        if (q.options && q.options.length > 0) { // 객관식
+        if (q.options && q.options.length > 0) {
             const selectedEl = document.querySelector('.option.selected');
-            if (!selectedEl) { showFeedback("보기를 선택해주세요."); return; }
+            if (!selectedEl) { showFeedback("보기를 선택해주세요.", 'error'); return; }
             userAnswer = selectedEl.textContent;
-        } else { // 주관식
+        } else {
             const inputEl = document.getElementById('subjective-answer');
-            if (!inputEl.value.trim()) { showFeedback("정답을 입력해주세요."); return; }
+            if (!inputEl.value.trim()) { showFeedback("정답을 입력해주세요.", 'error'); return; }
             userAnswer = inputEl.value.trim();
         }
-
         const isCorrect = userAnswer === q.answer;
         if (isCorrect) {
             quizScore++;
@@ -658,14 +578,12 @@
             feedbackDiv.className = 'feedback incorrect';
             feedbackDiv.innerHTML = `<p>오답입니다. (정답: ${q.answer})</p>`;
         }
-
         if(q.explanation) {
             feedbackDiv.innerHTML += `<div class="explanation">${q.explanation}</div>`;
         }
-
-        // 버튼 상태 변경
-        document.getElementById('submit-btn').textContent = '다음 문제 →';
-        document.getElementById('submit-btn').onclick = () => {
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.textContent = '다음 문제 →';
+        submitBtn.onclick = () => {
             currentQuizIndex++;
             displayCurrentQuiz();
         };
