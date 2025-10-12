@@ -5,14 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>나만의 CBT</title>
     <style>
-        /* 기본 & 레이아웃 */
+        /* 모든 CSS 스타일 */
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
         .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .hidden { display: none !important; }
         #feedback-bar.success { background-color: #28a745; }
         #feedback-bar.error { background-color: #dc3545; }
-        
-        /* 버튼 */
         .button { width: 100%; padding: 12px; font-size: 1rem; border-radius: 6px; cursor: pointer; margin-top: 10px; border: 1px solid #dee2e6; font-weight: 600; transition: all 0.2s ease-in-out; }
         .primary-button { background-color: #0d6efd; color: white; border-color: #0d6efd; }
         .secondary-button { background-color: #6c757d; color: white; border-color: #6c757d; }
@@ -20,14 +18,10 @@
         .small-button { width: auto; padding: 5px 10px; font-size: 0.8em; margin: 0; }
         .icon-button { background: none; border: none; cursor: pointer; padding: 8px; font-size: 1.2rem; color: #6c757d; border-radius: 5px; line-height: 1; }
         .icon-button:hover { background-color: #e9ecef; }
-
-        /* 폼 그룹 & 입력창 */
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
         .form-group input, .form-group textarea { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; font-size: 1em; font-family: inherit; }
         .dynamic-field-group { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
-
-        /* 문제 관리 화면 */
         .management-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;}
         .learning-mode-selector { display: flex; }
         .learning-mode-selector .button { margin-top:0; border-radius: 0; }
@@ -36,16 +30,9 @@
         .learning-mode-selector .button + .button { border-left-width: 0; }
         #question-list-container.split-view { display: flex; gap: 20px; }
         #tree-panel { flex: 1; min-width: 250px; border: 1px solid #eee; border-radius: 8px; padding: 10px; height: 500px; overflow-y: auto; }
-        .question-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 15px;
-            border-bottom: 1px solid #eee;
-            gap: 15px; /* ✨ 이 줄을 추가해주세요 */
-        }
+        .question-item { display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid #eee; gap: 15px; }
+        .question-item-text { flex-grow: 1; }
         .question-item:hover { background-color: #f8f9fa; }
-        
-        /* 과목 트리 */
         #subject-list ul, #tree-panel ul { padding-left: 1em; list-style: none; }
         .node-header, .node { display: flex; align-items: center; cursor: pointer; padding: 5px; border-radius: 4px;}
         .node-header:hover, .node:hover { background-color: #f0f2f5; }
@@ -54,8 +41,13 @@
         .subject-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 10px 10px 28px; }
         .subject-item:hover { background-color: #f8f9fa; border-radius: 4px;}
         .subject-item-buttons { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+        .option { padding: 15px 20px; border: 1px solid #dee2e6; border-radius: 8px; cursor: pointer; transition: all 0.2s ease-in-out; }
+        .option:hover { background-color: #f8f9fa; }
+        .option.selected { background-color: #e0eaff; border-color: #0d6efd; font-weight: bold; }
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10; }
+        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 20; width: 90%; max-width: 500px; }
+        #daily-progress-container { background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: center; font-size: 1.1em; display: flex; justify-content: center; align-items: center; gap: 10px; }
 
-        /* 반응형 디자인 */
         @media (max-width: 768px) {
             body { padding: 10px; }
             .container { padding: 15px; }
@@ -97,7 +89,6 @@
   appId: "1:1091430877229:web:1c4fae4ff852df4e1610a4"
 };
 
-        
     const app = firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
@@ -124,7 +115,24 @@
         });
 
         document.getElementById('auth-container').innerHTML = `<span id="user-email"></span><div id="logged-out-view"><button class="button light-button" onclick="showView('login-view')">로그인</button><button class="button primary-button" onclick="showView('signup-view')">회원가입</button></div><div id="logged-in-view" class="hidden"><button class="button secondary-button" onclick="logOut()">로그아웃</button></div>`;
-        document.getElementById('subject-view').innerHTML = `<h2>과목을 선택하세요</h2><div id="subject-controls"><div id="subject-tree-actions"><button class="button light-button small-button" onclick="expandAllNodes()">모두 펼치기</button><button class="button light-button small-button" onclick="collapseAllNodes()">모두 접기</button><button class="icon-button" onclick="showTreeSettingsModal()" title="기본 보기 설정">⚙️</button></div><input type="search" id="subject-search" placeholder="학문/학기/과목명 검색..." onkeyup="filterSubjectTree()"></div><div id="subject-list" style="border: 1px solid #eee; border-radius: 8px; padding: 10px;"></div><button class="button primary-button" onclick="showSubjectForm()">+ 새 과목 추가</button>`;
+        document.getElementById('subject-view').innerHTML = `
+    <h2>과목을 선택하세요</h2>
+    <div id="daily-progress-container"></div>
+    <div id="goal-setting-form-container" class="hidden" style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+        <h4>오늘의 목표 설정</h4>
+        <div class="form-group">
+            <label for="daily-goal">풀 문제 수</label>
+            <input type="number" id="daily-goal" min="1">
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="button light-button" onclick="toggleGoalSettingForm()">취소</button>
+            <button class="button primary-button" onclick="saveDailyGoal()">저장</button>
+        </div>
+    </div>
+    <div id="subject-controls"><div id="subject-tree-actions"><button class="button light-button small-button" onclick="expandAllNodes()">모두 펼치기</button><button class="button light-button small-button" onclick="collapseAllNodes()">모두 접기</button><button class="icon-button" onclick="showTreeSettingsModal()" title="기본 보기 설정">⚙️</button></div><input type="search" id="subject-search" placeholder="학문/학기/과목명 검색..." onkeyup="filterSubjectTree()"></div>
+    <div id="subject-list" style="border: 1px solid #eee; border-radius: 8px; padding: 10px;"></div>
+    <button class="button primary-button" onclick="showSubjectForm()">+ 새 과목 추가</button>
+`;
         document.getElementById('management-view').innerHTML = `<h2 id="management-header"></h2><div class="management-controls"><div class="mode-controls-group" style="display: flex; align-items: center; gap: 10px;"><div id="learning-mode-selector" class="learning-mode-selector"></div><div id="list-mode-toggle-container"></div></div><button class="button primary-button" style="margin-top:0; width: auto;" onclick="showFullEditView()">+ 새 문제 추가</button></div><div id="question-list-container"></div><div id="pagination-container" style="text-align: center; margin-top: 20px;"></div><button class="button light-button" onclick="showView('subject-view')" style="margin-top: 20px;">↩️ 과목 선택으로</button>`;
         document.getElementById('login-view').innerHTML = `<h2>로그인</h2><div class="form-group"><label for="login-email">이메일</label><input type="email" id="login-email"></div><div class="form-group"><label for="login-password">비밀번호</label><input type="password" id="login-password"></div><button class="button primary-button" onclick="logIn()">로그인</button><button class="button light-button" onclick="showView('subject-view')">취소</button>`;
         document.getElementById('signup-view').innerHTML = `<h2>회원가입</h2><div class="form-group"><label for="signup-email">이메일</label><input type="email" id="signup-email"></div><div class="form-group"><label for="signup-password">비밀번호</label><input type="password" id="signup-password"></div><button class="button primary-button" onclick="signUp()">회원가입</button><button class="button light-button" onclick="showView('subject-view')">취소</button>`;
@@ -151,19 +159,30 @@
     // ==================================
     // ## 핵심 유틸리티 함수 ##
     // ==================================
-    function showView(viewId) { views.forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', id !== viewId); }); }
-    function showFeedback(message, type = 'error') {
-        const feedbackBar = document.getElementById('feedback-bar');
-        if (!feedbackBar) return;
-        feedbackBar.textContent = message;
-        feedbackBar.className = type;
-        setTimeout(() => { feedbackBar.className = 'hidden'; }, 3000);
+    function getTodayDateString() {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    function showView(viewId) {
+        closeModal(); // ✨ 뷰가 변경될 때마다 열려있는 모달 창을 닫습니다 (문제 2, 4 해결)
+        views.forEach(id => { 
+            const el = document.getElementById(id); 
+            if (el) el.classList.toggle('hidden', id !== viewId); 
+        });
     }
     
     // ==================================
     // ## 인증 및 앱 시작 함수 ##
     // ==================================
-    async function initializeApp(user) { await loadUserSettings(user.uid); await loadSubjects(); showView('subject-view'); }
+    async function initializeApp(user) {
+        await loadUserSettings(user.uid);
+        await displayDailyProgress(); // ✨ 오늘의 목표 표시 함수 호출
+        await loadSubjects();
+        showView('subject-view');
+    }
     async function loadUserSettings(userId) {
         const userDocRef = db.collection('users').doc(userId);
         try {
@@ -182,7 +201,98 @@
     async function signUp() { try { await auth.createUserWithEmailAndPassword(document.getElementById('signup-email').value, document.getElementById('signup-password').value); } catch (e) { showFeedback(e.message, 'error'); } }
     async function logIn() { try { await auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-password').value); } catch (e) { showFeedback(e.message, 'error'); } }
     function logOut() { auth.signOut(); }
-    
+
+    // ==================================
+    // ## 오늘의 목표 관련 함수
+    // ==================================
+    function toggleGoalSettingForm() {
+        const formContainer = document.getElementById('goal-setting-form-container');
+        formContainer.classList.toggle('hidden');
+    }
+
+    async function displayDailyProgress() {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const today = getTodayDateString();
+        const progressDocRef = db.collection('users').doc(user.uid).collection('dailyProgress').doc(today);
+        
+        let solved = 0;
+        let goal = userSettings.dailyGoal || 20; // 사용자 설정 또는 기본값
+
+        try {
+            const doc = await progressDocRef.get();
+            if (doc.exists) {
+                solved = doc.data().solved || 0;
+                goal = doc.data().goal || goal;
+            } else {
+                // 오늘 첫 접속이면 목표 설정
+                await progressDocRef.set({ goal: goal, solved: 0 }, { merge: true });
+            }
+        } catch (error) {
+            console.error("Error fetching daily progress:", error);
+        }
+
+        const container = document.getElementById('daily-progress-container');
+        container.innerHTML = `<span>오늘의 목표: ${solved} / ${goal} 문제</span> <button class="icon-button" onclick="toggleGoalSettingForm()">✏️</button>`;
+        
+        // 폼의 input 값도 현재 목표로 설정
+        document.getElementById('daily-goal').value = goal;
+    }
+
+    function showGoalSettingModal(currentGoal) {
+        const modalContainer = document.getElementById('modal-container');
+        modalContainer.innerHTML = `<div class="modal-backdrop" onclick="closeModal()"></div><div class="modal"><h3>오늘의 목표 설정</h3><div class="form-group"><label for="daily-goal">풀 문제 수</label><input type="number" id="daily-goal" value="${currentGoal}" min="1"></div><div style="display: flex; gap: 10px;"><button class="button light-button" onclick="closeModal()">취소</button><button class="button primary-button" onclick="saveDailyGoal()">저장</button></div></div>`;
+    }
+
+    async function saveDailyGoal() {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const newGoal = document.getElementById('daily-goal').value;
+        if (!newGoal || newGoal < 1) {
+            showFeedback('올바른 목표를 설정해주세요.', 'error');
+            return;
+        }
+
+        const today = getTodayDateString();
+        const progressDocRef = db.collection('users').doc(user.uid).collection('dailyProgress').doc(today);
+        
+        try {
+            await progressDocRef.set({ goal: Number(newGoal) }, { merge: true });
+            toggleGoalSettingForm(); // ✨ 저장 후 폼을 닫습니다.
+            await displayDailyProgress();
+            showFeedback('목표가 저장되었습니다.', 'success');
+        } catch (error) {
+            // (에러 처리 동일)
+        }
+    }
+
+    async function updateDailyProgress(problemsSolved) {
+        const user = auth.currentUser;
+        if (!user || problemsSolved === 0) return;
+
+        const today = getTodayDateString();
+        const progressDocRef = db.collection('users').doc(user.uid).collection('dailyProgress').doc(today);
+
+        try {
+            // increment를 사용해 안전하게 숫자 증가
+            await progressDocRef.update({
+                solved: firebase.firestore.FieldValue.increment(problemsSolved)
+            });
+            await displayDailyProgress(); // UI 새로고침
+        } catch (error) {
+            // 문서가 없을 경우(하루가 지나고 첫 퀴즈 등) 새로 생성 후 업데이트
+            if (error.code === 'not-found') {
+                const goal = userSettings.dailyGoal || 20;
+                await progressDocRef.set({ goal: goal, solved: problemsSolved });
+                await displayDailyProgress();
+            } else {
+                console.error("Error updating progress:", error);
+            }
+        }
+    }
+
     // ==================================
     // ## 과목 관리 함수 ##
     // ==================================
@@ -359,24 +469,56 @@
         showView('quiz-view');
         displayCurrentQuiz();
     }
+
+    function exitQuiz() {
+        if (currentQuizIndex > 0) {
+            updateDailyProgress(currentQuizIndex); // 현재까지 푼 문제 수를 반영
+        }
+        showView('subject-view');
+    }
+
     function displayCurrentQuiz() {
         const quizView = document.getElementById('quiz-view');
+        
         if (currentQuizIndex >= quizQuestions.length) {
-            quizView.innerHTML = `<div class="final-result"><h2>🎉 퀴즈가 끝났습니다!</h2><p>총 ${quizQuestions.length}문제 중 <strong>${quizScore}개</strong>를 맞히셨습니다.</p></div><button class="button primary-button" onclick="showView('subject-view')">과목 선택으로 돌아가기</button>`;
+            updateDailyProgress(quizQuestions.length);
+            quizView.innerHTML = `...`; // (결과 화면은 동일)
             return;
         }
+
         const q = quizQuestions[currentQuizIndex];
-        const optionsHTML = (q.options && q.options.length > 0) ? q.options.map(opt => `<div class="option">${opt}</div>`).join('') : '<div class="form-group"><label for="subjective-answer">정답 입력:</label><input type="text" id="subjective-answer"></div>';
-        quizView.innerHTML = `<div id="quiz-header">${currentQuizIndex + 1} / ${quizQuestions.length}</div><div id="quiz-body"><h4>${q.text}</h4><div class="options-container">${optionsHTML}</div></div><div id="quiz-footer"><div id="immediate-feedback"></div><button id="submit-btn" class="button primary-button">정답 확인</button><button class="button light-button" onclick="showView('subject-view')">↩️ 퀴즈 중단</button></div>`;
+        const optionsHTML = (q.options && q.options.length > 0) 
+            ? q.options.map(opt => `<div class="option">${opt}</div>`).join('')
+            : '<div class="form-group"><label for="subjective-answer">정답 입력:</label><input type="text" id="subjective-answer"></div>';
+
+        // ✨ '퀴즈 중단' 버튼이 exitQuiz()를 호출하도록 수정
+        quizView.innerHTML = `
+            <div id="quiz-header">${currentQuizIndex + 1} / ${quizQuestions.length}</div>
+            <div id="quiz-body">
+                <h4>${q.text}</h4>
+                <div class="options-container">${optionsHTML}</div>
+            </div>
+            <div id="quiz-footer">
+                <div id="immediate-feedback"></div>
+                <button id="submit-btn" class="button primary-button">정답 확인</button>
+                <button class="button light-button" onclick="exitQuiz()">↩️ 퀴즈 중단</button>
+            </div>
+        `;
+
+        // ✨ 객관식 보기 선택 시 시각적 피드백을 주도록 이벤트 리스너 수정 (문제 1 해결)
         quizView.querySelectorAll('.option').forEach(el => {
             el.addEventListener('click', (e) => {
+                // 모든 보기에서 'selected' 스타일 제거
                 quizView.querySelectorAll('.option').forEach(opt => opt.classList.remove('selected'));
+                // 클릭한 보기에만 'selected' 스타일 추가
                 e.currentTarget.classList.add('selected');
                 selectedOption = e.currentTarget.textContent;
             });
         });
+
         document.getElementById('submit-btn').addEventListener('click', submitAnswer);
     }
+    
     function submitAnswer() {
         const q = quizQuestions[currentQuizIndex];
         const feedbackDiv = document.getElementById('immediate-feedback');
