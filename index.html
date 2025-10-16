@@ -9,6 +9,7 @@
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
         .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .hidden { display: none !important; }
+        #feedback-bar { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; color: white; z-index: 100; }
         #feedback-bar.success { background-color: #28a745; }
         #feedback-bar.error { background-color: #dc3545; }
         .button { width: 100%; padding: 12px; font-size: 1rem; border-radius: 6px; cursor: pointer; margin-top: 10px; border: 1px solid #dee2e6; font-weight: 600; transition: all 0.2s ease-in-out; }
@@ -31,11 +32,13 @@
         #question-list-container.split-view { display: flex; gap: 20px; }
         #tree-panel { flex: 1; min-width: 250px; border: 1px solid #eee; border-radius: 8px; padding: 10px; height: 500px; overflow-y: auto; }
         .question-item { display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid #eee; gap: 15px; }
-        .question-item-text { flex-grow: 1; }
+        .question-item-text { flex-grow: 1; cursor: pointer; }
+        .question-item-text b { margin-right: 8px; }
         .question-item:hover { background-color: #f8f9fa; }
         #subject-list ul, #tree-panel ul { padding-left: 1em; list-style: none; }
         .node-header, .node { display: flex; align-items: center; cursor: pointer; padding: 5px; border-radius: 4px;}
         .node-header:hover, .node:hover { background-color: #f0f2f5; }
+        .node.selected { background-color: #e0eaff; font-weight: bold; }
         .node-icon { margin-right: 8px; transition: transform 0.2s; display: inline-block; width: 1em; }
         .node-header.expanded > .node-icon { transform: rotate(90deg); }
         .subject-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 10px 10px 28px; }
@@ -47,7 +50,6 @@
         .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10; }
         .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 20; width: 90%; max-width: 500px; }
         #daily-progress-container { background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: center; font-size: 1.1em; display: flex; justify-content: center; align-items: center; gap: 10px; }
-
         @media (max-width: 768px) {
             body { padding: 10px; }
             .container { padding: 15px; }
@@ -60,11 +62,23 @@
             #quiz-body h4 { font-size: 1.2em; }
             .option { padding: 12px 15px; }
         }
+        #calendar-wrapper { display: flex; gap: 5px; margin-bottom: 20px; }
+        #weekday-labels { display: grid; grid-template-rows: repeat(7, 1fr); gap: 3px; font-size: 0.7em; color: #555; text-align: center; align-items: center; }
+        #calendar-container { display: grid; grid-template-rows: repeat(7, 1fr); grid-auto-flow: column; gap: 3px; position: relative; }
+        .calendar-day { width: 15px; height: 15px; background-color: #ebedf0; border-radius: 2px; }
+        .calendar-day[data-level="1"] { background-color: #9be9a8; }
+        .calendar-day[data-level="2"] { background-color: #40c463; }
+        .calendar-day[data-level="3"] { background-color: #30a14e; }
+        .calendar-day[data-level="4"] { background-color: #216e39; }
+        .month-label { position: absolute; top: -18px; font-size: 0.7em; color: #555; }
+        .login-options { text-align: right; font-size: 0.9em; margin-bottom: 15px; }
+        .login-options a { color: #0d6efd; text-decoration: none; }
+        .login-options a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div id="feedback-bar" class="hidden" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; color: white; z-index: 100;"></div>
+        <div id="feedback-bar" class="hidden"></div>
         <div id="auth-container"></div>
         <div id="subject-view" class="hidden"></div>
         <div id="management-view" class="hidden"></div>
@@ -79,7 +93,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script>
- 
+
  const firebaseConfig = {
   apiKey: "AIzaSyBl4mNG0HVKLY159dPjJEuYZTp9_ay_guk",
   authDomain: "my-cbt-app-2cdb9.firebaseapp.com",
@@ -114,43 +128,36 @@
             }
         });
 
-        document.getElementById('auth-container').innerHTML = `<span id="user-email"></span><div id="logged-out-view"><button class="button light-button" onclick="showView('login-view')">로그인</button><button class="button primary-button" onclick="showView('signup-view')">회원가입</button></div><div id="logged-in-view" class="hidden"><button class="button secondary-button" onclick="logOut()">로그아웃</button></div>`;
-        document.getElementById('subject-view').innerHTML = `
-    <h2>과목을 선택하세요</h2>
-    <div id="daily-progress-container"></div>
-    <div id="goal-setting-form-container" class="hidden" style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-        <h4>오늘의 목표 설정</h4>
-        <div class="form-group">
-            <label for="daily-goal">풀 문제 수</label>
-            <input type="number" id="daily-goal" min="1">
-        </div>
-        <div style="display: flex; gap: 10px;">
-            <button class="button light-button" onclick="toggleGoalSettingForm()">취소</button>
-            <button class="button primary-button" onclick="saveDailyGoal()">저장</button>
-        </div>
-    </div>
-    <div id="subject-controls"><div id="subject-tree-actions"><button class="button light-button small-button" onclick="expandAllNodes()">모두 펼치기</button><button class="button light-button small-button" onclick="collapseAllNodes()">모두 접기</button><button class="icon-button" onclick="showTreeSettingsModal()" title="기본 보기 설정">⚙️</button></div><input type="search" id="subject-search" placeholder="학문/학기/과목명 검색..." onkeyup="filterSubjectTree()"></div>
-    <div id="subject-list" style="border: 1px solid #eee; border-radius: 8px; padding: 10px;"></div>
-    <button class="button primary-button" onclick="showSubjectForm()">+ 새 과목 추가</button>
-`;
-        document.getElementById('management-view').innerHTML = `<h2 id="management-header"></h2><div class="management-controls"><div class="mode-controls-group" style="display: flex; align-items: center; gap: 10px;"><div id="learning-mode-selector" class="learning-mode-selector"></div><div id="list-mode-toggle-container"></div></div><button class="button primary-button" style="margin-top:0; width: auto;" onclick="showFullEditView()">+ 새 문제 추가</button></div><div id="question-list-container"></div><div id="pagination-container" style="text-align: center; margin-top: 20px;"></div><button class="button light-button" onclick="showView('subject-view')" style="margin-top: 20px;">↩️ 과목 선택으로</button>`;
-        document.getElementById('login-view').innerHTML = `<h2>로그인</h2><div class="form-group"><label for="login-email">이메일</label><input type="email" id="login-email"></div><div class="form-group"><label for="login-password">비밀번호</label><input type="password" id="login-password"></div><button class="button primary-button" onclick="logIn()">로그인</button><button class="button light-button" onclick="showView('subject-view')">취소</button>`;
+        // 뷰 초기 HTML 설정
+        document.getElementById('login-view').innerHTML = `<h2>로그인</h2><div class="form-group"><label for="login-email">이메일</label><input type="email" id="login-email"></div><div class="form-group"><label for="login-password">비밀번호</label><input type="password" id="login-password"></div><div class="login-options"><a href="#" onclick="showPasswordResetModal()">비밀번호를 잊으셨나요?</a></div><button class="button primary-button" onclick="logIn()">로그인</button><button class="button light-button" onclick="showView('login-view')">취소</button>`;
+        document.getElementById('auth-container').innerHTML = `<div id="logged-out-view"><button class="button light-button" onclick="showView('login-view')">로그인</button><button class="button primary-button" onclick="showView('signup-view')">회원가입</button></div><div id="logged-in-view" class="hidden"><span id="user-email"></span><button class="button secondary-button" onclick="logOut()">로그아웃</button></div>`;
+        document.getElementById('subject-view').innerHTML = `<h2>과목을 선택하세요</h2><div id="daily-progress-container"></div><div id="calendar-wrapper"><div id="weekday-labels"></div><div id="calendar-container"></div></div><div id="goal-setting-form-container" class="hidden" style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; margin-bottom: 20px;"><h4>오늘의 목표 설정</h4><div class="form-group"><label for="daily-goal">풀 문제 수</label><input type="number" id="daily-goal" min="1"></div><div style="display: flex; gap: 10px;"><button class="button light-button" onclick="toggleGoalSettingForm()">취소</button><button class="button primary-button" onclick="saveDailyGoal()">저장</button></div></div><div id="subject-controls" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><input type="search" id="subject-search" placeholder="학문/학기/과목명 검색..." onkeyup="filterSubjectTree()" style="width:50%;"><div id="subject-tree-actions" style="display:flex; gap:5px;"><button class="button light-button small-button" onclick="expandAllNodes()">모두 펼치기</button><button class="button light-button small-button" onclick="collapseAllNodes()">모두 접기</button><button class="icon-button" onclick="showTreeSettingsModal()" title="기본 보기 설정">⚙️</button></div></div><div id="subject-list" style="border: 1px solid #eee; border-radius: 8px; padding: 10px;"></div><button class="button primary-button" onclick="showSubjectForm()">+ 새 과목 추가</button>`;
+        document.getElementById('management-view').innerHTML = `<h2 id="management-header"></h2><div class="management-controls"><div class="mode-controls-group" style="display: flex; align-items: center; gap: 10px;"><div id="learning-mode-selector" class="learning-mode-selector"></div><div id="list-mode-toggle-container"></div></div><div style="display:flex; gap:10px; margin-top:0;"><button class="button light-button" style="width:auto;" onclick="showBulkAddModal()">+ 여러 문제 추가</button><button class="button primary-button" style="width: auto;" onclick="showFullEditView()">+ 새 문제 추가</button></div></div><div id="question-list-container"></div><div id="pagination-container" style="text-align: center; margin-top: 20px;"></div><button class="button light-button" onclick="showView('subject-view')" style="margin-top: 20px;">↩️ 과목 선택으로</button>`;
         document.getElementById('signup-view').innerHTML = `<h2>회원가입</h2><div class="form-group"><label for="signup-email">이메일</label><input type="email" id="signup-email"></div><div class="form-group"><label for="signup-password">비밀번호</label><input type="password" id="signup-password"></div><button class="button primary-button" onclick="signUp()">회원가입</button><button class="button light-button" onclick="showView('subject-view')">취소</button>`;
-        document.getElementById('add-edit-view').innerHTML = `<h2 id="add-edit-header"></h2><input type="hidden" id="editing-question-id"><h4>1. 문제 정보 (필수)</h4><div class="form-group"><label for="q-text-full">문제 내용</label><textarea id="q-text-full" rows="3"></textarea></div><div class="form-group"><label for="q-answer-full">정답</label><input type="text" id="q-answer-full"></div><div class="form-group"><label for="q-explanation-full">해설</label><textarea id="q-explanation-full" rows="3"></textarea></div><hr><h4>2. 목차 정보 (10단계)</h4>` + Array.from({length: 10}, (_, i) => `<div class="form-group"><label for="q-level${i+1}">${i+1}단계</label><input type="text" id="q-level${i+1}"></div>`).join('') + `<hr><h4>3. 기출 정보 (실전 학습용)</h4><div class="form-group"><label for="q-examYear">연도</label><input type="text" id="q-examYear" placeholder="예: 2024"></div><div class="form-group"><label for="q-examRound">회차</label><input type="text" id="q-examRound" placeholder="예: 1회"></div><div class="form-group"><label for="q-examNumber">문제 번호</label><input type="text" id="q-examNumber" placeholder="예: 45번"></div><hr><h4>4. 객관식 보기 (선택)</h4><div class="form-group"><div id="q-options-container"></div><button class="button light-button small-button" onclick="addDynamicField('option')">+ 보기 추가</button></div><hr><h4>5. 개념 분석 (키워드/태그)</h4><div class="form-group"><label>키워드</label><div id="q-keywords-container"></div><button class="button light-button small-button" onclick="addDynamicField('keyword')">+ 키워드 추가</button></div><div class="form-group"><label>태그</label><div id="q-tags-container"></div><button class="button light-button small-button" onclick="addDynamicField('tag')">+ 태그 추가</button></div><div class="form-group"><label>메타태그</label><div id="q-metatags-container"></div><button class="button light-button small-button" onclick="addDynamicField('metatag')">+ 메타태그 추가</button></div><hr><div style="display:flex; gap: 10px;"><button class="button light-button" onclick="showManagementView(false)">취소</button><button id="save-full-btn" class="button primary-button">저장</button></div>`;
+        let addEditHTML = `<h2 id="add-edit-header"></h2><input type="hidden" id="editing-question-id"><h4>1. 문제 정보 (필수)</h4><div class="form-group"><label for="q-text">문제 내용</label><textarea id="q-text" rows="3"></textarea></div><div class="form-group"><label for="q-answer">정답</label><input type="text" id="q-answer"></div><div class="form-group"><label for="q-explanation">해설</label><textarea id="q-explanation" rows="3"></textarea></div><hr><h4>2. 목차 정보 (10단계)</h4>`;
+        for (let i = 1; i <= 10; i++) { addEditHTML += `<div class="form-group"><label for="q-level${i}">${i}단계</label><input type="text" id="q-level${i}"></div>`; }
+        addEditHTML += `<hr><h4>3. 기출 정보 (실전 학습용)</h4><div class="form-group"><label for="q-examYear">연도</label><input type="text" id="q-examYear" placeholder="예: 2024"></div><div class="form-group"><label for="q-examRound">회차</label><input type="text" id="q-examRound" placeholder="예: 1회"></div><hr><h4>4. 객관식 보기 (선택)</h4><div id="q-options-container"></div><button class="button light-button small-button" onclick="addDynamicField('option')">+ 보기 추가</button><hr><h4>5. 키워드/태그 (검색용)</h4><div id="q-keywords-container"></div><button class="button light-button small-button" onclick="addDynamicField('keyword')">+ 키워드 추가</button><div id="q-tags-container"></div><button class="button light-button small-button" onclick="addDynamicField('tag')">+ 태그 추가</button><div id="q-metatags-container"></div><button class="button light-button small-button" onclick="addDynamicField('metatag')">+ 메타태그 추가</button><div style="display:flex; gap:10px; margin-top:20px;"><button class="button light-button" onclick="showManagementView(false)">취소</button><button id="save-full-btn" class="button primary-button">저장</button></div>`;
+        document.getElementById('add-edit-view').innerHTML = addEditHTML;
 
+        // 인증 상태 변경 리스너
         auth.onAuthStateChanged((user) => {
-            const authContainer = document.getElementById('auth-container');
-            if (authContainer) {
-                authContainer.innerHTML = user
-                    ? `<span id="user-email">${user.email}님</span><div id="logged-in-view"><button class="button secondary-button" onclick="logOut()">로그아웃</button></div>`
-                    : `<span id="user-email"></span><div id="logged-out-view"><button class="button light-button" onclick="showView('login-view')">로그인</button><button class="button primary-button" onclick="showView('signup-view')">회원가입</button></div>`;
-            }
+            const loggedOutView = document.getElementById('logged-out-view');
+            const loggedInView = document.getElementById('logged-in-view');
+            
             if (user) {
+                if(loggedInView) {
+                    document.getElementById('user-email').textContent = `${user.email}님`;
+                    loggedInView.classList.remove('hidden');
+                }
+                if(loggedOutView) loggedOutView.classList.add('hidden');
                 initializeApp(user);
             } else {
+                if(loggedInView) loggedInView.classList.add('hidden');
+                if(loggedOutView) loggedOutView.classList.remove('hidden');
+                
                 userSettings = { subjectTreeState: {}, subjectTreeDefaultState: 'expanded', listMode: 'paging' };
                 const subjectList = document.getElementById('subject-list');
-                if (subjectList) subjectList.innerHTML = `<p style="text-align:center; padding: 20px;">로그인 후 이용해주세요.</p>`;
+                if(subjectList) subjectList.innerHTML = `<p style="text-align:center; padding: 20px;">로그인 후 이용해주세요.</p>`;
                 showView('login-view');
             }
         });
@@ -159,30 +166,21 @@
     // ==================================
     // ## 핵심 유틸리티 함수 ##
     // ==================================
-    function getTodayDateString() {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-    function showView(viewId) {
-        closeModal(); // ✨ 뷰가 변경될 때마다 열려있는 모달 창을 닫습니다 (문제 2, 4 해결)
-        views.forEach(id => { 
-            const el = document.getElementById(id); 
-            if (el) el.classList.toggle('hidden', id !== viewId); 
-        });
-    }
-    
+
+    function getTodayDateString() { const today = new Date(); const year = today.getFullYear(); const month = String(today.getMonth() + 1).padStart(2, '0'); const day = String(today.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`; }
+    function showView(viewId) { closeModal(); views.forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', id !== viewId); }); }
+    function showFeedback(message, type = 'success') { const feedbackBar = document.getElementById('feedback-bar'); if (!feedbackBar) return; feedbackBar.textContent = message; feedbackBar.className = type; setTimeout(() => { feedbackBar.className = 'hidden'; }, 3000); }  
     // ==================================
     // ## 인증 및 앱 시작 함수 ##
     // ==================================
     async function initializeApp(user) {
         await loadUserSettings(user.uid);
-        await displayDailyProgress(); // ✨ 오늘의 목표 표시 함수 호출
+        await displayDailyProgress(); // ✨ 올바른 함수 이름으로 수정
+        await renderLearningCalendar();
         await loadSubjects();
         showView('subject-view');
     }
+
     async function loadUserSettings(userId) {
         const userDocRef = db.collection('users').doc(userId);
         try {
@@ -203,93 +201,204 @@
     function logOut() { auth.signOut(); }
 
     // ==================================
-    // ## 오늘의 목표 관련 함수
+    // ## 인증 관련 함수 ##
     // ==================================
-    function toggleGoalSettingForm() {
-        const formContainer = document.getElementById('goal-setting-form-container');
-        formContainer.classList.toggle('hidden');
+    function showPasswordResetModal() {
+        const modalContainer = document.getElementById('modal-container');
+        modalContainer.innerHTML = `<div class="modal-backdrop" onclick="closeModal()"></div><div class="modal"><h3>비밀번호 재설정</h3><p style="font-size: 0.9em; color: #555; margin-bottom: 15px;">가입하신 이메일 주소를 입력하시면 비밀번호 재설정 링크를 보내드립니다.</p><div class="form-group"><label for="reset-email">이메일</label><input type="email" id="reset-email"></div><div style="display: flex; gap: 10px;"><button class="button light-button" onclick="closeModal()">취소</button><button class="button primary-button" onclick="sendPasswordReset()">전송</button></div></div>`;
     }
 
-    async function displayDailyProgress() {
+    async function sendPasswordReset() {
+        const email = document.getElementById('reset-email').value.trim();
+        if (!email) {
+            showFeedback('이메일을 입력해주세요.', 'error');
+            return;
+        }
+        try {
+            await auth.sendPasswordResetEmail(email);
+            closeModal();
+            showFeedback('비밀번호 재설정 이메일이 전송되었습니다. 메일함을 확인해주세요.', 'success');
+        } catch (error) {
+            console.error("Error sending password reset email:", error);
+            showFeedback(error.message, 'error');
+        }
+    }
+
+    // ==================================
+    // ## 학습 달력 관련 함수 ##
+    // ==================================
+    async function renderLearningCalendar() {
         const user = auth.currentUser;
         if (!user) return;
 
-        const today = getTodayDateString();
-        const progressDocRef = db.collection('users').doc(user.uid).collection('dailyProgress').doc(today);
-        
-        let solved = 0;
-        let goal = userSettings.dailyGoal || 20; // 사용자 설정 또는 기본값
+        const calendarContainer = document.getElementById('calendar-container');
+        const weekdayContainer = document.getElementById('weekday-labels');
+        calendarContainer.innerHTML = '';
+        weekdayContainer.innerHTML = '';
 
-        try {
-            const doc = await progressDocRef.get();
-            if (doc.exists) {
-                solved = doc.data().solved || 0;
-                goal = doc.data().goal || goal;
+        // ✨ 요일 라벨 추가 (일, 수, 금)
+        const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+        weekdays.forEach((day, i) => {
+            if (i % 2 === 0) { // 홀수 번째 요일만 표시 (일, 수, 금)
+                const dayLabel = document.createElement('div');
+                dayLabel.textContent = day;
+                weekdayContainer.appendChild(dayLabel);
             } else {
-                // 오늘 첫 접속이면 목표 설정
-                await progressDocRef.set({ goal: goal, solved: 0 }, { merge: true });
+                weekdayContainer.appendChild(document.createElement('div')); // 짝수 번째는 빈 칸
             }
+        });
+
+        // 1. 1년치 학습 데이터 불러오기
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        const oneYearAgoStr = `${oneYearAgo.getFullYear()}-${String(oneYearAgo.getMonth() + 1).padStart(2, '0')}-${String(oneYearAgo.getDate()).padStart(2, '0')}`;
+
+        const progressMap = new Map();
+        try {
+            const snapshot = await db.collection('users').doc(user.uid).collection('dailyProgress')
+                .where(firebase.firestore.FieldPath.documentId(), ">=", oneYearAgoStr)
+                .get();
+            snapshot.forEach(doc => {
+                progressMap.set(doc.id, doc.data().solved || 0);
+            });
         } catch (error) {
-            console.error("Error fetching daily progress:", error);
+            console.error("Error fetching learning history:", error);
         }
 
+        // 2. 달력 격자 생성
+        const today = new Date();
+        let currentDate = new Date(oneYearAgo);
+        let currentMonth = -1;
+        let weekIndex = 0;
+
+        // 첫 날짜의 요일을 계산하여 빈 칸 채우기
+        const firstDayOfWeek = currentDate.getDay();
+        for (let i = 0; i < firstDayOfWeek; i++) {
+            const emptyDay = document.createElement('div');
+            emptyDay.className = 'calendar-day';
+            emptyDay.style.visibility = 'hidden';
+            calendarContainer.appendChild(emptyDay);
+        }
+
+        // 1년치 날짜 채우기
+        while (currentDate <= today) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day';
+
+            const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+            const solvedCount = progressMap.get(dateStr) || 0;
+
+            // 3. 푼 문제 수에 따라 색상 레벨 결정
+            let level = 0;
+            if (solvedCount > 0 && solvedCount <= 5) level = 1;
+            else if (solvedCount > 5 && solvedCount <= 10) level = 2;
+            else if (solvedCount > 10 && solvedCount <= 15) level = 3;
+            else if (solvedCount > 15) level = 4;
+
+            if (solvedCount > 0) {
+                dayElement.setAttribute('data-level', level);
+            }
+            dayElement.title = `${dateStr}: ${solvedCount} 문제`;
+
+            calendarContainer.appendChild(dayElement);
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+    }
+
+    // ==================================
+    // ## 오늘의 목표 & 스트릭 & 달력 함수 ##
+    // ==================================
+    function toggleGoalSettingForm() { const formContainer = document.getElementById('goal-setting-form-container'); formContainer.classList.toggle('hidden'); }
+    async function displayDailyProgress() {
+        const user = auth.currentUser; if (!user) return;
+        const today = getTodayDateString();
+        const progressDocRef = db.collection('users').doc(user.uid).collection('dailyProgress').doc(today);
+        let solved = 0; let goal = userSettings.dailyGoal || 20; let streak = userSettings.currentStreak || 0;
+        try { const doc = await progressDocRef.get(); if (doc.exists) { solved = doc.data().solved || 0; goal = doc.data().goal || goal; } } catch (error) { console.error("Error fetching daily progress:", error); }
         const container = document.getElementById('daily-progress-container');
-        container.innerHTML = `<span>오늘의 목표: ${solved} / ${goal} 문제</span> <button class="icon-button" onclick="toggleGoalSettingForm()">✏️</button>`;
-        
-        // 폼의 input 값도 현재 목표로 설정
+        container.innerHTML = `<span>오늘의 목표: ${solved} / ${goal} 문제</span> <span style="margin-left: 15px;">🔥 ${streak}일 연속 학습 중!</span> <button class="icon-button" onclick="toggleGoalSettingForm()">✏️</button>`;
         document.getElementById('daily-goal').value = goal;
     }
 
-    function showGoalSettingModal(currentGoal) {
-        const modalContainer = document.getElementById('modal-container');
-        modalContainer.innerHTML = `<div class="modal-backdrop" onclick="closeModal()"></div><div class="modal"><h3>오늘의 목표 설정</h3><div class="form-group"><label for="daily-goal">풀 문제 수</label><input type="number" id="daily-goal" value="${currentGoal}" min="1"></div><div style="display: flex; gap: 10px;"><button class="button light-button" onclick="closeModal()">취소</button><button class="button primary-button" onclick="saveDailyGoal()">저장</button></div></div>`;
-    }
-
     async function saveDailyGoal() {
-        const user = auth.currentUser;
-        if (!user) return;
-
+        const user = auth.currentUser; if (!user) return;
         const newGoal = document.getElementById('daily-goal').value;
-        if (!newGoal || newGoal < 1) {
-            showFeedback('올바른 목표를 설정해주세요.', 'error');
-            return;
-        }
-
+        if (!newGoal || newGoal < 1) { showFeedback('올바른 목표를 설정해주세요.', 'error'); return; }
         const today = getTodayDateString();
         const progressDocRef = db.collection('users').doc(user.uid).collection('dailyProgress').doc(today);
-        
         try {
             await progressDocRef.set({ goal: Number(newGoal) }, { merge: true });
-            toggleGoalSettingForm(); // ✨ 저장 후 폼을 닫습니다.
-            await displayDailyProgress();
+            toggleGoalSettingForm();
+            await displayDailyProgressAndStreak();
             showFeedback('목표가 저장되었습니다.', 'success');
-        } catch (error) {
-            // (에러 처리 동일)
-        }
+        } catch (error) { console.error("Error saving daily goal:", error); showFeedback('목표 저장 중 오류가 발생했습니다.', 'error'); }
     }
 
     async function updateDailyProgress(problemsSolved) {
-        const user = auth.currentUser;
-        if (!user || problemsSolved === 0) return;
-
+        const user = auth.currentUser; if (!user || problemsSolved === 0) return;
         const today = getTodayDateString();
         const progressDocRef = db.collection('users').doc(user.uid).collection('dailyProgress').doc(today);
-
         try {
-            // increment를 사용해 안전하게 숫자 증가
-            await progressDocRef.update({
-                solved: firebase.firestore.FieldValue.increment(problemsSolved)
-            });
-            await displayDailyProgress(); // UI 새로고침
+            await progressDocRef.update({ solved: firebase.firestore.FieldValue.increment(problemsSolved) });
         } catch (error) {
-            // 문서가 없을 경우(하루가 지나고 첫 퀴즈 등) 새로 생성 후 업데이트
-            if (error.code === 'not-found') {
-                const goal = userSettings.dailyGoal || 20;
-                await progressDocRef.set({ goal: goal, solved: problemsSolved });
-                await displayDailyProgress();
-            } else {
-                console.error("Error updating progress:", error);
+            if (error.code === 'not-found') { const goal = userSettings.dailyGoal || 20; await progressDocRef.set({ goal: goal, solved: problemsSolved });
+            } else { console.error("Error updating progress:", error); }
+        }
+        await updateStreak();
+        await displayDailyProgressAndStreak();
+    }
+
+    async function updateStreak() {
+        const user = auth.currentUser; if (!user) return;
+        const today = new Date(); const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+        const todayStr = getTodayDateString();
+        const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+        const lastStudyDay = userSettings.lastStudyDay; let currentStreak = userSettings.currentStreak || 0;
+        if (lastStudyDay === todayStr) { return; } else if (lastStudyDay === yesterdayStr) { currentStreak++; } else { currentStreak = 1; }
+        userSettings.currentStreak = currentStreak;
+        userSettings.lastStudyDay = todayStr;
+        await saveUserSettings();
+    }
+
+    async function renderLearningCalendar() {
+        const user = auth.currentUser; if (!user) return;
+        const calendarContainer = document.getElementById('calendar-container');
+        const weekdayContainer = document.getElementById('weekday-labels');
+        calendarContainer.innerHTML = ''; weekdayContainer.innerHTML = '';
+        const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+        weekdays.forEach((day, i) => { if (i % 2 !== 0) { const dayLabel = document.createElement('div'); dayLabel.textContent = day; weekdayContainer.appendChild(dayLabel); } else { weekdayContainer.appendChild(document.createElement('div')); } });
+        const oneYearAgo = new Date(); oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        const oneYearAgoStr = `${oneYearAgo.getFullYear()}-${String(oneYearAgo.getMonth() + 1).padStart(2, '0')}-${String(oneYearAgo.getDate()).padStart(2, '0')}`;
+        const progressMap = new Map();
+        try {
+            const snapshot = await db.collection('users').doc(user.uid).collection('dailyProgress').where(firebase.firestore.FieldPath.documentId(), ">=", oneYearAgoStr).get();
+            snapshot.forEach(doc => { progressMap.set(doc.id, doc.data().solved || 0); });
+        } catch (error) { console.error("Error fetching learning history:", error); }
+        const today = new Date(); let currentDate = new Date(oneYearAgo); let currentMonth = -1; let weekIndex = 0;
+        const firstDayOfWeek = currentDate.getDay();
+        for (let i = 0; i < firstDayOfWeek; i++) { const emptyDay = document.createElement('div'); emptyDay.className = 'calendar-day'; emptyDay.style.visibility = 'hidden'; calendarContainer.appendChild(emptyDay); }
+        while (currentDate <= today) {
+            if (currentDate.getMonth() !== currentMonth) {
+                currentMonth = currentDate.getMonth();
+                const monthLabel = document.createElement('div');
+                monthLabel.className = 'month-label';
+                monthLabel.textContent = currentDate.toLocaleString('default', { month: 'short' });
+                monthLabel.style.left = `${weekIndex * 18}px`;
+                calendarContainer.appendChild(monthLabel);
             }
+            const dayElement = document.createElement('div'); dayElement.className = 'calendar-day';
+            const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+            const solvedCount = progressMap.get(dateStr) || 0;
+            let level = 0;
+            if (solvedCount > 0 && solvedCount <= 5) level = 1;
+            else if (solvedCount > 5 && solvedCount <= 10) level = 2;
+            else if (solvedCount > 10 && solvedCount <= 15) level = 3;
+            else if (solvedCount > 15) level = 4;
+            if (solvedCount > 0) { dayElement.setAttribute('data-level', level); }
+            dayElement.title = `${dateStr}: ${solvedCount} 문제`;
+            calendarContainer.appendChild(dayElement);
+            currentDate.setDate(currentDate.getDate() + 1);
+            if (currentDate.getDay() === 0) { weekIndex++; }
         }
     }
 
@@ -342,116 +451,287 @@
     // ==================================
     async function manageSubject(id) { const doc = await db.collection('subjects').doc(id).get(); if (!doc.exists) { showFeedback("과목 정보를 찾을 수 없습니다.", 'error'); return; } currentSubjectId = id; currentSubjectData = doc.data(); currentPage = 1; await showManagementView(true); }
     function setLearningMode(mode) { currentLearningMode = mode; currentPage = 1; showManagementView(false); }
-    function toggleListMode() { userSettings.listMode = (userSettings.listMode === 'paging') ? 'infinite' : 'paging'; saveUserSettings(); currentPage = 1; showManagementView(false); }
+    function toggleListMode() { userSettings.listMode = (userSettings.listMode === 'paging') ? 'infinite' : 'paging'; saveUserSettings(); currentPage = 1; allQuestionsForSubject = []; showManagementView(true); }
+    
     async function showManagementView(fetchData = false) {
         showView('management-view');
         document.getElementById('management-header').textContent = `[${currentSubjectData.name}] 문제 관리`;
         const container = document.getElementById('question-list-container');
         document.getElementById('learning-mode-selector').innerHTML = `<button class="button ${currentLearningMode === 'list' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('list')">전체 목록</button><button class="button ${currentLearningMode === 'topic' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('topic')">목차별</button><button class="button ${currentLearningMode === 'exam' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('exam')">회차별</button><button class="button ${currentLearningMode === 'keyword' ? 'primary-button' : 'light-button'}" onclick="setLearningMode('keyword')">키워드별</button>`;
-        const toggleContainer = document.getElementById('list-mode-toggle-container');
-        if (currentLearningMode === 'list') { const isPaging = userSettings.listMode === 'paging'; toggleContainer.innerHTML = `<button class="icon-button" onclick="toggleListMode()" title="${isPaging ? '무한 스크롤로 전환' : '페이지네이션으로 전환'}">${isPaging ? '∞' : '🔢'}</button>`; } else { toggleContainer.innerHTML = ''; }
-        const scrollableContainer = document.querySelector('.container');
-        scrollableContainer.onscroll = null;
+        
         if (fetchData) {
             container.innerHTML = '<div style="text-align: center; padding: 20px; color: #888;">문제 목록 로딩 중...</div>';
             const snapshot = await db.collection('subjects').doc(currentSubjectId).collection('questions').get();
             allQuestionsForSubject = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         }
+
         container.innerHTML = ''; container.className = '';
         document.getElementById('pagination-container').innerHTML = '';
         if (allQuestionsForSubject.length === 0) { container.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">등록된 문제가 없습니다.</p>'; return; }
+        
         if (currentLearningMode === 'list') {
-            renderProblemList(container, allQuestionsForSubject);
-            if (userSettings.listMode === 'paging') {
-                renderPagination(allQuestionsForSubject.length);
-            } else {
-                scrollableContainer.onscroll = () => { if (scrollableContainer.scrollTop + scrollableContainer.clientHeight >= scrollableContainer.scrollHeight - 100) { loadMoreProblems(); } };
-            }
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const paginatedQuestions = allQuestionsForSubject.slice(startIndex, startIndex + itemsPerPage);
+            renderProblemList(container, paginatedQuestions, true, startIndex);
+            renderPagination(allQuestionsForSubject.length);
         } else {
             container.className = 'split-view';
             container.innerHTML = `<div id="tree-panel"></div><div id="problem-list-panel"><p style="color:#888; text-align:center;">← 왼쪽에서 항목을 선택하세요.</p></div>`;
             let levels;
             if (currentLearningMode === 'topic') { levels = Array.from({length: 10}, (_, i) => `level${i + 1}`); }
-            else if (currentLearningMode === 'exam') { levels = ['examYear', 'examRound', 'examNumber']; }
+            else if (currentLearningMode === 'exam') { levels = ['examYear', 'examRound']; }
             else if (currentLearningMode === 'keyword') { levels = ['keywords', 'tags', 'metatags']; }
             const treeData = buildTreeData(allQuestionsForSubject, levels);
             renderTree(treeData, levels);
         }
     }
-    function renderProblemList(container, questions) {
-        const listContainer = document.createElement('div');
-        listContainer.style.border = '1px solid #eee'; listContainer.style.borderRadius = '8px'; listContainer.className = 'problem-list-wrapper';
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        const paginatedQuestions = questions.slice(startIndex, endIndex);
-        paginatedQuestions.forEach(q => {
-            const item = document.createElement('div'); item.className = 'question-item';
-            item.innerHTML = `<div class="question-item-text" onclick="showFullEditView('${q.id}')">${q.text}</div><div class="question-item-actions"><button class="button light-button small-button" onclick="showFullEditView('${q.id}')">수정</button><button class="button light-button small-button" onclick="deleteProblem('${q.id}')">삭제</button></div>`;
-            listContainer.appendChild(item);
-        });
-        container.innerHTML = '';
-        container.appendChild(listContainer);
-    }
-    function appendProblemList(container, questions) {
-        const listContainer = container.querySelector('.problem-list-wrapper');
+
+    function renderProblemList(container, questions, isInitialLoad = true, startIndex = 0) {
+        let listContainer;
+        if (isInitialLoad) {
+            container.innerHTML = '';
+            listContainer = document.createElement('div');
+            listContainer.id = 'problem-list-wrapper';
+            container.appendChild(listContainer);
+        } else {
+            listContainer = container.querySelector('#problem-list-wrapper');
+        }
         if (!listContainer) return;
-        questions.forEach(q => {
-            const item = document.createElement('div'); item.className = 'question-item';
-            item.innerHTML = `<div class="question-item-text" onclick="showFullEditView('${q.id}')">${q.text}</div><div class="question-item-actions"><button class="button light-button small-button" onclick="showFullEditView('${q.id}')">수정</button><button class="button light-button small-button" onclick="deleteProblem('${q.id}')">삭제</button></div>`;
+        
+        questions.forEach((q, index) => {
+            const item = document.createElement('div');
+            item.className = 'question-item';
+            const questionNumber = startIndex + index + 1;
+            item.innerHTML = `<div class="question-item-text" onclick="showFullEditView('${q.id}')"><b>${questionNumber}.</b> ${q.text || '(내용 없음)'}</div>
+                              <div class="question-item-actions">
+                                  <button class="button light-button small-button" onclick="showFullEditView('${q.id}')">수정</button>
+                                  <button class="button light-button small-button" onclick="deleteProblem('${q.id}')">삭제</button>
+                              </div>`;
             listContainer.appendChild(item);
         });
     }
-    function loadMoreProblems() {
-        if (isLoading) return;
-        const totalPages = Math.ceil(allQuestionsForSubject.length / itemsPerPage);
-        if (currentPage >= totalPages) return;
-        isLoading = true;
-        currentPage++;
+
+    function renderPagination(totalItems) { const paginationContainer = document.getElementById('pagination-container'); paginationContainer.innerHTML = ''; const totalPages = Math.ceil(totalItems / itemsPerPage); if (totalPages <= 1) return; const prevButton = document.createElement('button'); prevButton.textContent = '<'; prevButton.className = 'button light-button small-button'; prevButton.disabled = currentPage === 1; prevButton.onclick = () => goToPage(currentPage - 1); paginationContainer.appendChild(prevButton); for (let i = 1; i <= totalPages; i++) { const pageButton = document.createElement('button'); pageButton.textContent = i; pageButton.className = 'button small-button ' + (i === currentPage ? 'primary-button' : 'light-button'); pageButton.onclick = () => goToPage(i); paginationContainer.appendChild(pageButton); } const nextButton = document.createElement('button'); nextButton.textContent = '>'; nextButton.className = 'button light-button small-button'; nextButton.disabled = currentPage === totalPages; nextButton.onclick = () => goToPage(currentPage + 1); paginationContainer.appendChild(nextButton); }
+    
+    function goToPage(pageNumber) {
+        currentPage = pageNumber;
         const startIndex = (currentPage - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        const nextQuestions = allQuestionsForSubject.slice(startIndex, endIndex);
-        const container = document.getElementById('question-list-container');
-        appendProblemList(container, nextQuestions);
-        isLoading = false;
+        const paginatedQuestions = allQuestionsForSubject.slice(startIndex, startIndex + itemsPerPage);
+        renderProblemList(document.getElementById('question-list-container'), paginatedQuestions, true, startIndex);
+        renderPagination(allQuestionsForSubject.length);
     }
-    function renderPagination(totalItems) { const paginationContainer = document.getElementById('pagination-container'); paginationContainer.innerHTML = ''; const totalPages = Math.ceil(totalItems / itemsPerPage); if (totalPages <= 1) return; const prevButton = document.createElement('button'); prevButton.textContent = '<'; prevButton.className = 'button light-button small-button'; prevButton.disabled = currentPage === 1; prevButton.onclick = () => goToPage(currentPage - 1); paginationContainer.appendChild(prevButton); for (let i = 1; i <= totalPages; i++) { const pageButton = document.createElement('button'); pageButton.textContent = i; pageButton.className = 'button small-button'; if (i === currentPage) { pageButton.classList.add('primary-button'); } else { pageButton.classList.add('light-button'); } pageButton.onclick = () => goToPage(i); paginationContainer.appendChild(pageButton); } const nextButton = document.createElement('button'); nextButton.textContent = '>'; nextButton.className = 'button light-button small-button'; nextButton.disabled = currentPage === totalPages; nextButton.onclick = () => goToPage(currentPage + 1); paginationContainer.appendChild(nextButton); }
-    function goToPage(pageNumber) { currentPage = pageNumber; showManagementView(false); }
-    function buildTreeData(questions, levels) { const tree = {}; questions.forEach(q => { let currentLevel = tree; levels.forEach((levelKey) => { const value = q[levelKey] || `미지정`; if (!currentLevel[value]) { currentLevel[value] = { _children: {} }; } currentLevel = currentLevel[value]._children; }); }); return tree; }
-    function renderTree(treeData, levels, level = 0, path = []) { const panel = document.getElementById('tree-panel'); if (level === 0) panel.innerHTML = ''; let html = '<ul>'; for (const key of Object.keys(treeData).sort()) { const currentPath = [...path, {key}]; const pathStr = JSON.stringify(currentPath).replace(/'/g, "&apos;"); html += `<li><div class="node" onclick='renderProblemListForNode(this, ${pathStr})'><span class="node-icon">▶</span>${key}</div>`; const children = treeData[key]._children; if (Object.keys(children).length > 0) { html += `<ul class="collapsed">${renderTree(children, levels, level + 1, currentPath)}</ul>`; } html += `</li>`; } html += '</ul>'; if (level === 0) { panel.innerHTML = html; panel.onclick = function(e) { if(e.target.classList.contains('node-icon') || e.target.classList.contains('node')) { const nodeDiv = e.target.closest('.node'); const subList = nodeDiv.nextElementSibling; if(subList && subList.tagName === 'UL') { subList.classList.toggle('collapsed'); nodeDiv.classList.toggle('expanded'); } } }; } return html; }
+    
+    // ✨✨✨ 여기에 있던 불필요한 코드 3줄을 삭제했습니다! ✨✨✨
+    
+    function buildTreeData(questions, levels) { const tree = {}; questions.forEach(q => { let currentLevel = tree; levels.forEach((levelKey) => { const value = Array.isArray(q[levelKey]) ? q[levelKey] : [q[levelKey] || `미지정`]; value.forEach(v => { if (!currentLevel[v]) { currentLevel[v] = { _children: {} }; } currentLevel = currentLevel[v]._children; }); }); }); return tree; }
+    function renderTree(treeData, levels, level = 0, path = []) { const panel = document.getElementById('tree-panel'); if (level === 0) panel.innerHTML = ''; let html = '<ul>'; for (const key of Object.keys(treeData).sort()) { const currentPath = [...path, {key}]; const pathStr = JSON.stringify(currentPath).replace(/'/g, "&apos;"); html += `<li><div class="node" onclick='renderProblemListForNode(this, ${pathStr})'><span class="node-icon">▶</span>${key}</div>`; const children = treeData[key]._children; if (Object.keys(children).length > 0) { html += `<ul class="hidden">${renderTree(children, levels, level + 1, currentPath)}</ul>`; } html += `</li>`; } html += '</ul>'; if (level === 0) { panel.innerHTML = html; panel.onclick = function(e) { if(e.target.classList.contains('node-icon') || e.target.closest('.node')) { const nodeDiv = e.target.closest('.node'); const subList = nodeDiv.nextElementSibling; if(subList && subList.tagName === 'UL') { subList.classList.toggle('hidden'); nodeDiv.querySelector('.node-icon').style.transform = subList.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(90deg)'; } } }; } return html; }
     function renderProblemListForNode(element, path) {
         document.querySelectorAll('#tree-panel .node').forEach(node => node.classList.remove('selected'));
         if (element) element.classList.add('selected');
         const panel = document.getElementById('problem-list-panel');
-        const levels = { topic: Array.from({length: 10}, (_, i) => `level${i + 1}`), exam: ['examYear', 'examRound', 'examNumber'], keyword: ['keywords', 'tags', 'metatags'] }[currentLearningMode];
+        const levels = { topic: Array.from({length: 10}, (_, i) => `level${i + 1}`), exam: ['examYear', 'examRound'], keyword: ['keywords', 'tags', 'metatags'] }[currentLearningMode];
         const filteredQuestions = allQuestionsForSubject.filter(q => { return path.every((p, i) => { const levelKey = levels[i]; const value = q[levelKey]; return Array.isArray(value) ? (value || []).includes(p.key) : (value || '미지정') === p.key; }); });
-        renderProblemList(panel, filteredQuestions);
+        renderProblemList(panel, filteredQuestions, true, 0);
     }
+    
+    function resetFullEditViewForm() {
+        document.getElementById('add-edit-header').textContent = '';
+        document.getElementById('editing-question-id').value = '';
+        ['text', 'answer', 'explanation', 'examYear', 'examRound'].forEach(f => {
+            const el = document.getElementById(`q-${f}`);
+            if (el) el.value = '';
+        });
+        for(let i = 1; i <= 10; i++) {
+            const el = document.getElementById(`q-level${i}`);
+            if (el) el.value = '';
+        }
+        ['options', 'keywords', 'tags', 'metatags'].forEach(type => {
+            const container = document.getElementById(`q-${type}-container`);
+            if(container) container.innerHTML = '';
+        });
+    }
+
     function showFullEditView(questionId = null) {
+        resetFullEditViewForm();
         showView('add-edit-view');
         const isEditing = !!questionId;
         const q = isEditing ? allQuestionsForSubject.find(q => q.id === questionId) : {};
+        
         document.getElementById('add-edit-header').textContent = isEditing ? '문제 수정' : '새 문제 추가';
         document.getElementById('editing-question-id').value = q.id || '';
-        for (let i = 1; i <= 10; i++) { const el = document.getElementById(`q-level${i}`); if (el) el.value = q[`level${i}`] || ''; }
-        const otherFields = ['examYear', 'examRound', 'examNumber', 'text-full', 'answer-full', 'explanation-full'];
-        otherFields.forEach(f => { const el = document.getElementById(`q-${f.replace('-full','')}`); if (el) el.value = q[f.replace('-full','')] || ''; });
-        ['option', 'keyword', 'tag', 'metatag'].forEach(type => { const container = document.getElementById(`q-${type}s-container`); container.innerHTML = ''; const items = q[type + 's'] || []; if (items.length === 0) { addDynamicField(type, ''); } else { items.forEach(val => addDynamicField(type, val)); } });
+        
+        document.getElementById('q-text').value = q.text || '';
+        document.getElementById('q-answer').value = q.answer || '';
+        document.getElementById('q-explanation').value = q.explanation || '';
+        document.getElementById('q-examYear').value = q.examYear || '';
+        document.getElementById('q-examRound').value = q.examRound || '';
+
+        for (let i = 1; i <= 10; i++) {
+            const el = document.getElementById(`q-level${i}`);
+            if (el) el.value = q[`level${i}`] || '';
+        }
+        
+        ['option', 'keyword', 'tag', 'metatag'].forEach(type => {
+            const container = document.getElementById(`q-${type}s-container`);
+            container.innerHTML = '';
+            const items = q[type + 's'] || [];
+            if (items.length === 0) {
+                addDynamicField(type, '');
+            } else {
+                items.forEach(val => addDynamicField(type, val));
+            }
+        });
+
         document.getElementById('save-full-btn').onclick = () => saveFullUpdate(questionId);
     }
-    function addDynamicField(type, value = '') { const container = document.getElementById(`q-${type}s-container`); if (!container) return; const newField = document.createElement('div'); newField.className = 'dynamic-field-group'; const count = container.children.length + 1; const placeholderText = type.charAt(0).toUpperCase() + type.slice(1); newField.innerHTML = `<span class="field-label">${count}.</span><input type="text" class="q-${type}" value="${value}" placeholder="${placeholderText}"><button class="remove-btn" onclick="this.parentElement.remove()">X</button>`; container.appendChild(newField); }
+
+    function addDynamicField(type, value = '') { const container = document.getElementById(`q-${type}s-container`); if (!container) return; const newField = document.createElement('div'); newField.className = 'dynamic-field-group'; const count = container.children.length + 1; const placeholderText = type.charAt(0).toUpperCase() + type.slice(1); newField.innerHTML = `<span class="field-label">${count}.</span><input type="text" class="q-${type}" value="${value}" placeholder="${placeholderText}"><button type="button" class="icon-button" onclick="this.parentElement.remove()">🗑️</button>`; container.appendChild(newField); }
+
     async function saveFullUpdate(questionId) {
         try {
-            const data = { examYear: document.getElementById('q-examYear').value.trim(), examRound: document.getElementById('q-examRound').value.trim(), examNumber: document.getElementById('q-examNumber').value.trim(), text: document.getElementById('q-text-full').value.trim(), answer: document.getElementById('q-answer-full').value.trim(), explanation: document.getElementById('q-explanation-full').value.trim(), keywords: Array.from(document.querySelectorAll('.q-keyword')).map(i => i.value.trim()).filter(Boolean), tags: Array.from(document.querySelectorAll('.q-tag')).map(i => i.value.trim()).filter(Boolean), metatags: Array.from(document.querySelectorAll('.q-metatag')).map(i => i.value.trim()).filter(Boolean), options: Array.from(document.querySelectorAll('.q-option')).map(i => i.value.trim()).filter(Boolean) };
-            for (let i = 1; i <= 10; i++) { const levelValue = document.getElementById(`q-level${i}`).value.trim(); if (levelValue) data[`level${i}`] = levelValue; }
+            const data = {
+                text: document.getElementById('q-text').value.trim(),
+                answer: document.getElementById('q-answer').value.trim(),
+                explanation: document.getElementById('q-explanation').value.trim(),
+                examYear: document.getElementById('q-examYear').value.trim(),
+                examRound: document.getElementById('q-examRound').value.trim(),
+                options: Array.from(document.querySelectorAll('.q-option')).map(i => i.value.trim()).filter(Boolean),
+                keywords: Array.from(document.querySelectorAll('.q-keyword')).map(i => i.value.trim()).filter(Boolean),
+                tags: Array.from(document.querySelectorAll('.q-tag')).map(i => i.value.trim()).filter(Boolean),
+                metatags: Array.from(document.querySelectorAll('.q-metatag')).map(i => i.value.trim()).filter(Boolean),
+            };
+            for (let i = 1; i <= 10; i++) { const levelValue = document.getElementById(`q-level${i}`).value.trim(); if (levelValue) data[`level${i}`] = levelValue; else data[`level${i}`] = firebase.firestore.FieldValue.delete(); }
             if (!data.text || !data.answer) { showFeedback("문제 내용과 정답은 필수입니다.", "error"); return; }
-            const subjectRef = db.collection('subjects').doc(currentSubjectId); 
-            if (questionId) { await subjectRef.collection('questions').doc(questionId).update(data); } else { await subjectRef.collection('questions').add(data); await db.runTransaction(async t => { const doc = await t.get(subjectRef); t.update(subjectRef, { questionCount: (doc.data().questionCount || 0) + 1 }); }); } 
+            
+            const subjectRef = db.collection('subjects').doc(currentSubjectId);
+            if (questionId) {
+                await subjectRef.collection('questions').doc(questionId).update(data);
+            } else {
+                await subjectRef.collection('questions').add(data);
+                await subjectRef.update({ questionCount: firebase.firestore.FieldValue.increment(1) });
+            }
             showFeedback(questionId ? "문제가 수정되었습니다." : "새 문제가 추가되었습니다.", "success");
             await showManagementView(true);
         } catch (error) { console.error("Firestore 저장 중 오류 발생:", error); showFeedback("저장 중 오류가 발생했습니다.", "error"); }
     }
-    async function deleteProblem(questionId) { if (!confirm("정말로 이 문제를 삭제하시겠습니까?")) return; try { const subjectRef = db.collection('subjects').doc(currentSubjectId); await subjectRef.collection('questions').doc(questionId).delete(); await db.runTransaction(async t => { const doc = await t.get(subjectRef); t.update(subjectRef, { questionCount: Math.max(0, (doc.data().questionCount || 1) - 1) }); }); showFeedback("문제가 삭제되었습니다.", "success"); await showManagementView(true); } catch(error) { console.error(error); showFeedback("문제 삭제 중 오류 발생", 'error'); } }
 
+    function showBulkAddModal() {
+    const modalContainer = document.getElementById('modal-container');
+    modalContainer.innerHTML = `
+        <div class="modal-backdrop" onclick="closeModal()"></div>
+        <div class="modal">
+            <h3>여러 문제 한 번에 추가</h3>
+
+            <div class="form-group">
+                <label>입력 방식 선택</label>
+                <div style="display: flex; gap: 15px; font-size: 0.9em;">
+                    <label>
+                        <input type="radio" name="bulk-format" value="keyword" checked>
+                        빈 줄로 구분 (정답:, 해설: 키워드)
+                    </label>
+                    <label>
+                        <input type="radio" name="bulk-format" value="delimiter">
+                        한 줄에 한 문제 (// 기호로 구분)
+                    </label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="bulk-questions-input">문제 목록 붙여넣기</label>
+                <textarea id="bulk-questions-input" rows="10" placeholder="위에서 선택한 방식에 맞게 문제 내용을 붙여넣어 주세요."></textarea>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="button light-button" onclick="closeModal()">취소</button>
+                <button class="button primary-button" onclick="saveBulkQuestions()">저장</button>
+            </div>
+        </div>
+    `;
+}
+
+    async function saveBulkQuestions() {
+    const selectedFormat = document.querySelector('input[name="bulk-format"]:checked').value;
+    const input = document.getElementById('bulk-questions-input').value.trim();
+    if (!input) {
+        showFeedback('추가할 문제 내용을 입력해주세요.', 'error');
+        return;
+    }
+
+    let questionsToAdd = [];
+    let parseError = false;
+
+    // ▼▼▼ 선택된 방식에 따라 파싱 로직 분기 ▼▼▼
+    if (selectedFormat === 'keyword') {
+        // 1. "빈 줄"과 "키워드" 방식
+        const questionBlocks = input.split(/\n\s*\n/).filter(block => block.trim() !== '');
+        for (const block of questionBlocks) {
+            const lines = block.split('\n');
+            const answerIndex = lines.findIndex(line => line.includes('정답:'));
+            
+            if (answerIndex === -1) {
+                showFeedback(`'정답:' 키워드를 찾을 수 없습니다: "${block.substring(0, 20)}..."`, 'error');
+                parseError = true;
+                break;
+            }
+
+            const text = lines.slice(0, answerIndex).join('\n').trim();
+            const explanationIndex = lines.findIndex(line => line.includes('해설:'));
+            let answer, explanation = '';
+
+            if (explanationIndex > -1) {
+                answer = lines.slice(answerIndex, explanationIndex).join('\n').replace('정답:', '').trim();
+                explanation = lines.slice(explanationIndex).join('\n').replace('해설:', '').trim();
+            } else {
+                answer = lines.slice(answerIndex).join('\n').replace('정답:', '').trim();
+            }
+
+            if (!text || !answer) {
+                 showFeedback(`형식이 올바르지 않은 문제가 있습니다: "${block.substring(0, 20)}..."`, 'error');
+                 parseError = true;
+                 break;
+            }
+            questionsToAdd.push({ text, answer, explanation });
+        }
+    } else {
+        // 2. "//" 기호 방식
+        const lines = input.split('\n').filter(line => line.trim() !== '');
+        for (const line of lines) {
+            const parts = line.split('//').map(p => p.trim());
+            const [text, answer, explanation = ''] = parts;
+            if (!text || !answer) {
+                showFeedback(`'//' 형식 오류: 문제와 정답은 필수입니다. ("${line.substring(0, 20)}...")`, 'error');
+                parseError = true;
+                break;
+            }
+            questionsToAdd.push({ text, answer, explanation });
+        }
+    }
+    // ▲▲▲ 파싱 로직 종료 ▲▲▲
+
+    if (parseError || questionsToAdd.length === 0) {
+        if (!parseError) showFeedback('추가할 문제가 없습니다.', 'error');
+        return;
+    }
+
+    // Firestore에 저장하는 로직 (이 부분은 기존과 동일)
+    try {
+        const subjectRef = db.collection('subjects').doc(currentSubjectId);
+        const batch = db.batch();
+        questionsToAdd.forEach(qData => {
+            const newQuestionRef = subjectRef.collection('questions').doc();
+            batch.set(newQuestionRef, qData);
+        });
+        batch.update(subjectRef, { questionCount: firebase.firestore.FieldValue.increment(questionsToAdd.length) });
+        await batch.commit();
+        closeModal();
+        showFeedback(`${questionsToAdd.length}개의 문제가 성공적으로 추가되었습니다.`, 'success');
+        await showManagementView(true);
+    } catch (error) {
+        console.error("여러 문제 저장 중 오류 발생:", error);
+        showFeedback("문제를 저장하는 중 오류가 발생했습니다.", "error");
+    }
+}
+
+    async function deleteProblem(questionId) { if (!confirm("정말로 이 문제를 삭제하시겠습니까?")) return; try { const subjectRef = db.collection('subjects').doc(currentSubjectId); await subjectRef.collection('questions').doc(questionId).delete(); await subjectRef.update({ questionCount: firebase.firestore.FieldValue.increment(-1) }); showFeedback("문제가 삭제되었습니다.", "success"); await showManagementView(true); } catch(error) { console.error(error); showFeedback("문제 삭제 중 오류 발생", 'error'); } }
+    
     // ==================================
     // ## 퀴즈 실행 함수 ##
     // ==================================
