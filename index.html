@@ -588,32 +588,56 @@
     function addDynamicField(type, value = '') { const container = document.getElementById(`q-${type}s-container`); if (!container) return; const newField = document.createElement('div'); newField.className = 'dynamic-field-group'; const count = container.children.length + 1; const placeholderText = type.charAt(0).toUpperCase() + type.slice(1); newField.innerHTML = `<span class="field-label">${count}.</span><input type="text" class="q-${type}" value="${value}" placeholder="${placeholderText}"><button type="button" class="icon-button" onclick="this.parentElement.remove()">🗑️</button>`; container.appendChild(newField); }
 
     async function saveFullUpdate(questionId) {
-        try {
-            const data = {
-                text: document.getElementById('q-text').value.trim(),
-                answer: document.getElementById('q-answer').value.trim(),
-                explanation: document.getElementById('q-explanation').value.trim(),
-                examYear: document.getElementById('q-examYear').value.trim(),
-                examRound: document.getElementById('q-examRound').value.trim(),
-                options: Array.from(document.querySelectorAll('.q-option')).map(i => i.value.trim()).filter(Boolean),
-                keywords: Array.from(document.querySelectorAll('.q-keyword')).map(i => i.value.trim()).filter(Boolean),
-                tags: Array.from(document.querySelectorAll('.q-tag')).map(i => i.value.trim()).filter(Boolean),
-                metatags: Array.from(document.querySelectorAll('.q-metatag')).map(i => i.value.trim()).filter(Boolean),
-            };
-            for (let i = 1; i <= 10; i++) { const levelValue = document.getElementById(`q-level${i}`).value.trim(); if (levelValue) data[`level${i}`] = levelValue; else data[`level${i}`] = firebase.firestore.FieldValue.delete(); }
-            if (!data.text || !data.answer) { showFeedback("문제 내용과 정답은 필수입니다.", "error"); return; }
-            
-            const subjectRef = db.collection('subjects').doc(currentSubjectId);
-            if (questionId) {
-                await subjectRef.collection('questions').doc(questionId).update(data);
-            } else {
-                await subjectRef.collection('questions').add(data);
-                await subjectRef.update({ questionCount: firebase.firestore.FieldValue.increment(1) });
+    try {
+        const data = {
+            text: document.getElementById('q-text').value.trim(),
+            answer: document.getElementById('q-answer').value.trim(),
+            explanation: document.getElementById('q-explanation').value.trim(),
+            examYear: document.getElementById('q-examYear').value.trim(),
+            examRound: document.getElementById('q-examRound').value.trim(),
+            options: Array.from(document.querySelectorAll('.q-option')).map(i => i.value.trim()).filter(Boolean),
+            keywords: Array.from(document.querySelectorAll('.q-keyword')).map(i => i.value.trim()).filter(Boolean),
+            tags: Array.from(document.querySelectorAll('.q-tag')).map(i => i.value.trim()).filter(Boolean),
+            metatags: Array.from(document.querySelectorAll('.q-metatag')).map(i => i.value.trim()).filter(Boolean),
+        };
+
+        // ▼▼▼ 여기가 수정된 부분입니다! ▼▼▼
+        for (let i = 1; i <= 10; i++) {
+            const levelValue = document.getElementById(`q-level${i}`).value.trim();
+            if (levelValue) {
+                // 값이 있으면 데이터에 추가
+                data[`level${i}`] = levelValue;
+            } else if (questionId) {
+                // 값이 없고, '수정' 모드일 때만 delete 명령 추가
+                data[`level${i}`] = firebase.firestore.FieldValue.delete();
             }
-            showFeedback(questionId ? "문제가 수정되었습니다." : "새 문제가 추가되었습니다.", "success");
-            await showManagementView(true);
-        } catch (error) { console.error("Firestore 저장 중 오류 발생:", error); showFeedback("저장 중 오류가 발생했습니다.", "error"); }
+            // '새 문제 추가' 모드이고 값이 없으면 아무것도 하지 않음
+        }
+        // ▲▲▲ 수정 완료 ▲▲▲
+
+        if (!data.text || !data.answer) {
+            showFeedback("문제 내용과 정답은 필수입니다.", "error");
+            return;
+        }
+        
+        const subjectRef = db.collection('subjects').doc(currentSubjectId);
+        if (questionId) {
+            // 수정 모드
+            await subjectRef.collection('questions').doc(questionId).update(data);
+        } else {
+            // 추가 모드
+            await subjectRef.collection('questions').add(data);
+            await subjectRef.update({ questionCount: firebase.firestore.FieldValue.increment(1) });
+        }
+
+        showFeedback(questionId ? "문제가 수정되었습니다." : "새 문제가 추가되었습니다.", "success");
+        await showManagementView(true);
+
+    } catch (error) {
+        console.error("Firestore 저장 중 오류 발생:", error);
+        showFeedback("저장 중 오류가 발생했습니다.", "error");
     }
+}
 
     function showBulkAddModal() {
     const modalContainer = document.getElementById('modal-container');
