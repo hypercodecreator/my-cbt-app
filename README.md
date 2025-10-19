@@ -1,4 +1,4 @@
-## 📜 프로젝트 개발 계획서 갱신 (v3.6.0)
+## 📜 프로젝트 개발 계획서 갱신 (v3.6.1)
 1. 프로젝트 명세서 (The 'Why' & 'Big What')
 
 1.1. 프로젝트 개요
@@ -45,6 +45,9 @@ subjectTreeState: 개별 노드 펼침/접힘 상태
 subjectTreeDefaultState: 트리 기본 보기 상태
 
 1.5. 핵심 수정 내역 (Key Changes History)
+
+v3.6.1: 버그 수정 (Firestore)
+'새 문제 추가' 시, 빈 목차 필드에 `FieldValue.delete()`가 호출되어 발생하던 Firestore 저장 오류 해결.
 
 v3.6.0: 문제 대량 추가 기능 고도화
 '여러 문제 추가' 기능에 사용자가 입력 방식을 선택할 수 있는 UI 추가.
@@ -153,6 +156,10 @@ Major.Minor.Patch 형식의 시맨틱 버저닝을 따른다.
 커밋 메시지는 타입: 제목 형식을 따른다. (e.g., feat:, fix:, docs:)
 
 4. 개발 일지 (Development Log)
+
+v3.6.1: Firestore 저장 오류 수정
+2025-10-19:
+'새 문제 추가' 시 `saveFullUpdate` 함수에서 발생하던 `FieldValue.delete` 관련 버그 수정 및 v3.6.1 버전 확정.
 
 v3.5.0: 점진적 학습 기능 도입
 
