@@ -487,29 +487,41 @@
     }
 
     function renderProblemList(container, questions, isInitialLoad = true, startIndex = 0) {
-        let listContainer;
-        if (isInitialLoad) {
-            container.innerHTML = '';
-            listContainer = document.createElement('div');
-            listContainer.id = 'problem-list-wrapper';
-            container.appendChild(listContainer);
-        } else {
-            listContainer = container.querySelector('#problem-list-wrapper');
-        }
-        if (!listContainer) return;
-        
-        questions.forEach((q, index) => {
-            const item = document.createElement('div');
-            item.className = 'question-item';
-            const questionNumber = startIndex + index + 1;
-            item.innerHTML = `<div class="question-item-text" onclick="showFullEditView('${q.id}')"><b>${questionNumber}.</b> ${q.text || '(내용 없음)'}</div>
-                              <div class="question-item-actions">
-                                  <button class="button light-button small-button" onclick="showFullEditView('${q.id}')">수정</button>
-                                  <button class="button light-button small-button" onclick="deleteProblem('${q.id}')">삭제</button>
-                              </div>`;
-            listContainer.appendChild(item);
-        });
+    let listContainer;
+    if (isInitialLoad) {
+        container.innerHTML = '';
+        listContainer = document.createElement('div');
+        listContainer.id = 'problem-list-wrapper';
+        container.appendChild(listContainer);
+    } else {
+        listContainer = container.querySelector('#problem-list-wrapper');
     }
+    if (!listContainer) return;
+    
+    questions.forEach((q, index) => {
+        const item = document.createElement('div');
+        item.className = 'question-item';
+        
+        // 1. (상대 번호)
+        const relativeNumber = startIndex + index + 1; 
+        
+        // 2. [절대 번호] (qid가 없으면 빈 문자열)
+        // ✨ qid가 없는 기존 문제를 위해 표시 방식 수정
+        const absoluteNumberDisplay = q.qid ? `<b style="color: #0d6efd;">[${q.qid}]</b>` : ''; 
+        
+        // 3. 두 번호를 모두 표시
+        item.innerHTML = `<div class="question-item-text" onclick="showFullEditView('${q.id}')">
+                            ${absoluteNumberDisplay}
+                            <span style="color: #888; font-size: 0.9em; margin-right: 5px;">(${relativeNumber})</span> 
+                            ${q.text || '(내용 없음)'}
+                          </div>
+                          <div class="question-item-actions">
+                              <button class="button light-button small-button" onclick="showFullEditView('${q.id}')">수정</button>
+                              <button class="button light-button small-button" onclick="deleteProblem('${q.id}')">삭제</button>
+                          </div>`;
+        listContainer.appendChild(item);
+    });
+}
 
     function renderPagination(totalItems) { const paginationContainer = document.getElementById('pagination-container'); paginationContainer.innerHTML = ''; const totalPages = Math.ceil(totalItems / itemsPerPage); if (totalPages <= 1) return; const prevButton = document.createElement('button'); prevButton.textContent = '<'; prevButton.className = 'button light-button small-button'; prevButton.disabled = currentPage === 1; prevButton.onclick = () => goToPage(currentPage - 1); paginationContainer.appendChild(prevButton); for (let i = 1; i <= totalPages; i++) { const pageButton = document.createElement('button'); pageButton.textContent = i; pageButton.className = 'button small-button ' + (i === currentPage ? 'primary-button' : 'light-button'); pageButton.onclick = () => goToPage(i); paginationContainer.appendChild(pageButton); } const nextButton = document.createElement('button'); nextButton.textContent = '>'; nextButton.className = 'button light-button small-button'; nextButton.disabled = currentPage === totalPages; nextButton.onclick = () => goToPage(currentPage + 1); paginationContainer.appendChild(nextButton); }
     
@@ -601,19 +613,14 @@
             metatags: Array.from(document.querySelectorAll('.q-metatag')).map(i => i.value.trim()).filter(Boolean),
         };
 
-        // ▼▼▼ 여기가 수정된 부분입니다! ▼▼▼
         for (let i = 1; i <= 10; i++) {
             const levelValue = document.getElementById(`q-level${i}`).value.trim();
             if (levelValue) {
-                // 값이 있으면 데이터에 추가
                 data[`level${i}`] = levelValue;
             } else if (questionId) {
-                // 값이 없고, '수정' 모드일 때만 delete 명령 추가
                 data[`level${i}`] = firebase.firestore.FieldValue.delete();
             }
-            // '새 문제 추가' 모드이고 값이 없으면 아무것도 하지 않음
         }
-        // ▲▲▲ 수정 완료 ▲▲▲
 
         if (!data.text || !data.answer) {
             showFeedback("문제 내용과 정답은 필수입니다.", "error");
@@ -621,16 +628,27 @@
         }
         
         const subjectRef = db.collection('subjects').doc(currentSubjectId);
-        if (questionId) {
-            // 수정 모드
-            await subjectRef.collection('questions').doc(questionId).update(data);
-        } else {
-            // 추가 모드
-            await subjectRef.collection('questions').add(data);
-            await subjectRef.update({ questionCount: firebase.firestore.FieldValue.increment(1) });
-        }
 
-        showFeedback(questionId ? "문제가 수정되었습니다." : "새 문제가 추가되었습니다.", "success");
+        if (questionId) {
+            // [기존] 수정 모드
+            await subjectRef.collection('questions').doc(questionId).update(data);
+            showFeedback("문제가 수정되었습니다.", "success");
+        } else {
+            // [신규] 추가 모드 (트랜잭션 사용)
+            await db.runTransaction(async (transaction) => {
+                const subjectDoc = await transaction.get(subjectRef);
+                const currentCount = subjectDoc.data().questionCount || 0;
+                
+                // ✨ 새 문제에 고유 ID (qid) 부여
+                data.qid = currentCount + 1; 
+
+                const newQuestionRef = subjectRef.collection('questions').doc();
+                transaction.set(newQuestionRef, data);
+                transaction.update(subjectRef, { questionCount: currentCount + 1 });
+            });
+            showFeedback("새 문제가 추가되었습니다.", "success");
+        }
+        
         await showManagementView(true);
 
     } catch (error) {
@@ -682,69 +700,68 @@
     let questionsToAdd = [];
     let parseError = false;
 
-    // ▼▼▼ 선택된 방식에 따라 파싱 로직 분기 ▼▼▼
     if (selectedFormat === 'keyword') {
-        // 1. "빈 줄"과 "키워드" 방식
         const questionBlocks = input.split(/\n\s*\n/).filter(block => block.trim() !== '');
         for (const block of questionBlocks) {
             const lines = block.split('\n');
             const answerIndex = lines.findIndex(line => line.includes('정답:'));
-            
             if (answerIndex === -1) {
                 showFeedback(`'정답:' 키워드를 찾을 수 없습니다: "${block.substring(0, 20)}..."`, 'error');
-                parseError = true;
-                break;
+                parseError = true; break;
             }
-
             const text = lines.slice(0, answerIndex).join('\n').trim();
             const explanationIndex = lines.findIndex(line => line.includes('해설:'));
             let answer, explanation = '';
-
             if (explanationIndex > -1) {
                 answer = lines.slice(answerIndex, explanationIndex).join('\n').replace('정답:', '').trim();
                 explanation = lines.slice(explanationIndex).join('\n').replace('해설:', '').trim();
             } else {
                 answer = lines.slice(answerIndex).join('\n').replace('정답:', '').trim();
             }
-
             if (!text || !answer) {
                  showFeedback(`형식이 올바르지 않은 문제가 있습니다: "${block.substring(0, 20)}..."`, 'error');
-                 parseError = true;
-                 break;
+                 parseError = true; break;
             }
             questionsToAdd.push({ text, answer, explanation });
         }
     } else {
-        // 2. "//" 기호 방식
         const lines = input.split('\n').filter(line => line.trim() !== '');
         for (const line of lines) {
             const parts = line.split('//').map(p => p.trim());
             const [text, answer, explanation = ''] = parts;
             if (!text || !answer) {
                 showFeedback(`'//' 형식 오류: 문제와 정답은 필수입니다. ("${line.substring(0, 20)}...")`, 'error');
-                parseError = true;
-                break;
+                parseError = true; break;
             }
             questionsToAdd.push({ text, answer, explanation });
         }
     }
-    // ▲▲▲ 파싱 로직 종료 ▲▲▲
 
     if (parseError || questionsToAdd.length === 0) {
         if (!parseError) showFeedback('추가할 문제가 없습니다.', 'error');
         return;
     }
 
-    // Firestore에 저장하는 로직 (이 부분은 기존과 동일)
+    // ▼▼▼ 저장 로직을 트랜잭션으로 수정 ▼▼▼
     try {
         const subjectRef = db.collection('subjects').doc(currentSubjectId);
-        const batch = db.batch();
-        questionsToAdd.forEach(qData => {
-            const newQuestionRef = subjectRef.collection('questions').doc();
-            batch.set(newQuestionRef, qData);
+        
+        await db.runTransaction(async (transaction) => {
+            const subjectDoc = await transaction.get(subjectRef);
+            let currentCount = subjectDoc.data().questionCount || 0;
+
+            questionsToAdd.forEach(qData => {
+                currentCount++; // 카운트를 1 증가시키고
+                qData.qid = currentCount; // ✨ 새 고유 ID (qid)로 부여
+
+                const newQuestionRef = subjectRef.collection('questions').doc();
+                transaction.set(newQuestionRef, qData);
+            });
+
+            // 최종적으로 증가된 총 카운트를 업데이트
+            transaction.update(subjectRef, { questionCount: currentCount });
         });
-        batch.update(subjectRef, { questionCount: firebase.firestore.FieldValue.increment(questionsToAdd.length) });
-        await batch.commit();
+        
         closeModal();
         showFeedback(`${questionsToAdd.length}개의 문제가 성공적으로 추가되었습니다.`, 'success');
         await showManagementView(true);
