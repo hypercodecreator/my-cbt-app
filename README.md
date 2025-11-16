@@ -155,15 +155,37 @@ GitHub의 잔디처럼, 학습한 날짜를 달력에 시각적으로 표시하�
 
 3. 개발 워크플로우 및 버전 관리 (Development Workflow & Versioning)
 
-3.1. 개발 흐름 (Development Flow)
+3.1. 개발 흐름 (GitHub Flow 기반)
 
-계획 (Plan): README.md의 'SOW'와 '개발 로드맵'을 수정하여 다음 버전에 구현할 기능을 명확히 정의한다.
+모든 작업은 main 브랜치에 직접 반영하지 않고, 별도의 기능(feature) 브랜치에서 진행한 후 **Pull Request(PR)**를 통해 검토하고 병합(Merge)한다.
 
-계획 공유 (Commit & Push Plan): 확정된 계획서를 docs: Plan for vX.X.X와 같은 커밋 메시지와 함께 GitHub에 푸시하여 계획을 공식화한다.
+계획 (Plan): README.md의 'SOW'와 '개발 로드맵'을 수정하여 다음 버전에 구현할 기능을 정의하고, 이 계획을 main 브랜치에 먼저 반영한다. (docs: ... 커밋)
 
-개발 (Code & Commit): 기능 개발을 진행하며, 의미 있는 단위로 작업을 나누어 feat:, fix: 등의 메시지와 함께 수시로 커밋하고 푸시한다.
+브랜치 생성 (Branch): main 브랜치에서 새로운 기능 브랜치를 생성하며 작업을 시작한다.
 
-완료 및 태그 (Tag & Release): 기능 구현이 완료되고 안정화되면, git tag vX.X.X 명령어로 버전을 확정하고 태그를 푸시한다. 이것으로 한 사이클이 종료된다.
+(예시) git checkout -b feature/layer-study
+
+개발 및 커밋 (Code & Commit): 기능 개발을 진행하며, 의미 있는 단위로 작업을 나누어 새로운 기능 브랜치에 커밋한다.
+
+푸시 (Push): 작업이 1차 완료되면, 기능 브랜치를 GitHub에 푸시한다.
+
+(예시) git push origin feature/layer-study
+
+검토 요청 (Pull Request):
+
+GitHub 저장소에서 feature/layer-study 브랜치를 main 브랜치로 병합하는 Pull Request(PR)를 생성한다.
+
+이 PR 페이지가 "컨트롤 타워" 역할을 하며, main과의 변경점(diff)을 시각적으로 검토한다.
+
+병합 및 정리 (Merge & Clean-up):
+
+"컨트롤 타워"에서 변경점에 이상이 없음을 확인한 후, "Merge pull request" 버튼을 눌러 main 브랜치에 최종 반영한다.
+
+main 브랜치로 다시 이동(git checkout main)하고, 최신 main 코드를 가져온다.(git pull origin main)
+
+완료 및 태그 (Tag & Release):
+
+main 브랜치에서 git tag vX.X.X 명령어로 버전을 확정하고 태그를 푸시한다. (git push origin vX.X.X)
 
 3.2. 버전 관리 (Versioning)
 
