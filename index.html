@@ -124,6 +124,7 @@ const firebaseConfig = {
     const itemsPerPage = 20;
     let isLoading = false;
     let calendarDate = new Date(); // v3.7.1 캘린더 변수
+    let quizOrderMode = 'random'; // ✨ v3.8.1 퀴즈 순서 (기본값: 랜덤)
 
     // ==================================
     // ## 앱 초기화 및 화면 렌더링 ##
@@ -142,6 +143,15 @@ const firebaseConfig = {
         // ▼▼▼ v3.7.1 레이아웃 변경 적용 ▼▼▼
         document.getElementById('subject-view').innerHTML = `
             <h2>과목을 선택하세요</h2>
+            
+            <div id="quiz-options" style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee;">
+                <label style="display: block; font-weight: 600; margin-bottom: 10px;">퀴즈 순서 설정</label>
+                <div id="quiz-order-selector" style="display: flex; gap: 5px;">
+                    <button class="button small-button ${quizOrderMode === 'sequential' ? 'primary-button' : 'light-button'}" onclick="setQuizOrder('sequential')">순차</button>
+                    <button class="button small-button ${quizOrderMode === 'random' ? 'primary-button' : 'light-button'}" onclick="setQuizOrder('random')">랜덤</button>
+                    <button class="button small-button ${quizOrderMode === 'reverse' ? 'primary-button' : 'light-button'}" onclick="setQuizOrder('reverse')">역순</button>
+                </div>
+            </div>
             <div id="subject-controls" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                 <input type="search" id="subject-search" placeholder="학문/학기/과목명 검색..." onkeyup="filterSubjectTree()" style="width:50%;">
                 <div id="subject-tree-actions" style="display:flex; gap:5px;">
@@ -210,6 +220,49 @@ const firebaseConfig = {
     // ==================================
     // ## 핵심 유틸리티 함수 ##
     // ==================================
+
+    // ✨ (v3.8.1 신규) 퀴즈 순서 설정 함수
+    function setQuizOrder(mode) {
+        quizOrderMode = mode;
+        console.log(`퀴즈 모드 변경됨: ${mode}`); // 확인용 로그
+
+        // 버튼 색상 변경 UI 처리
+        const buttons = document.querySelectorAll('#quiz-order-selector .button');
+        buttons.forEach(btn => {
+            // 버튼의 텍스트를 가져와서 비교 (순차/랜덤/역순)
+            const btnText = btn.textContent.trim();
+            let isSelected = false;
+
+            if (mode === 'sequential' && btnText === '순차') isSelected = true;
+            if (mode === 'random' && btnText === '랜덤') isSelected = true;
+            if (mode === 'reverse' && btnText === '역순') isSelected = true;
+
+            if (isSelected) {
+                btn.classList.add('primary-button');
+                btn.classList.remove('light-button');
+            } else {
+                btn.classList.add('light-button');
+                btn.classList.remove('primary-button');
+            }
+        });
+    }
+
+    // ✨ (v3.8.1 수정) qid 기준으로 문제 정렬하는 헬퍼 함수 (안전장치 추가)
+    function sortQuestions(questions) {
+        return questions.sort((a, b) => {
+            // qid가 없으면 0으로 취급
+            const qidA = Number(a.qid) || 0;
+            const qidB = Number(b.qid) || 0;
+            
+            // 번호가 다르면 번호 순서대로
+            if (qidA !== qidB) {
+                return qidA - qidB;
+            }
+            // 번호가 같거나 없으면 등록된 순서(문자열)로라도 정렬
+            return (a.text || '').localeCompare(b.text || '');
+        });
+    }
+
     function getTodayDateString() { const today = new Date(); const year = today.getFullYear(); const month = String(today.getMonth() + 1).padStart(2, '0'); const day = String(today.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`; }
     function showView(viewId) { closeModal(); views.forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', id !== viewId); }); }
     function showFeedback(message, type = 'success') { const feedbackBar = document.getElementById('feedback-bar'); if (!feedbackBar) return; feedbackBar.textContent = message; feedbackBar.className = type; setTimeout(() => { feedbackBar.className = 'hidden'; }, 3000); }
@@ -218,6 +271,9 @@ const firebaseConfig = {
     // ==================================
     // ## 인증 및 앱 시작 함수 ##
     // ==================================
+
+
+
     async function initializeApp(user) {
         await loadUserSettings(user.uid);
         await displayDailyProgress();
@@ -840,9 +896,34 @@ const firebaseConfig = {
         if (!doc.exists) { showFeedback("과목 정보를 찾을 수 없습니다.", 'error'); return; }
         currentSubjectId = id;
         currentSubjectData = doc.data();
+        
         const snapshot = await db.collection('subjects').doc(currentSubjectId).collection('questions').get();
         if (snapshot.empty) { showFeedback('퀴즈를 시작하려면 최소 1개 이상의 문제가 필요합니다.', 'error'); return; }
-        quizQuestions = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort(() => 0.5 - Math.random());
+
+        // 데이터를 가져와서 배열로 변환
+        let questions = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        console.log(`[디버깅] 정렬 전 첫 문제 qid: ${questions[0].qid || '없음'}`);
+
+        // 1. 일단 무조건 '순차(qid)' 기준으로 정렬
+        questions = sortQuestions(questions);
+
+        // 2. 선택된 모드에 따라 배열 재배치
+        if (quizOrderMode === 'random') {
+            console.log("--> 랜덤 섞기 적용");
+            questions.sort(() => 0.5 - Math.random());
+        } else if (quizOrderMode === 'reverse') {
+            console.log("--> 역순 뒤집기 적용");
+            questions.reverse();
+        } else {
+            console.log("--> 순차 모드 유지");
+        }
+
+        // 최종 적용
+        quizQuestions = questions;
+
+        console.log(`[디버깅] 최종 첫 문제: [${quizQuestions[0].qid}] ${quizQuestions[0].text.substring(0, 10)}...`);
+
         currentQuizIndex = 0;
         quizScore = 0;
         selectedOption = null;
@@ -861,14 +942,16 @@ const firebaseConfig = {
     function displayCurrentQuiz() {
         const quizView = document.getElementById('quiz-view');
         
+        // 1. 퀴즈가 끝났을 때 결과 화면
         if (currentQuizIndex >= quizQuestions.length) {
             updateDailyProgress(quizQuestions.length);
-            renderMonthlyCalendar(); // ✨ await 제거
+            renderMonthlyCalendar(); 
 
             quizView.innerHTML = `
                 <div id="quiz-header">퀴즈 완료!</div>
-                <div id="quiz-body">
-                    <h4>총 ${quizQuestions.length}문제 중 ${quizScore}문제를 맞혔습니다.</h4>
+                <div id="quiz-body" style="text-align:center; padding: 40px 0;">
+                    <h3 style="margin-bottom:20px;">🎉 수고하셨습니다!</h3>
+                    <h4>총 ${quizQuestions.length}문제 중 <span style="color:#0d6efd; font-size:1.2em;">${quizScore}</span>문제를 맞혔습니다.</h4>
                 </div>
                 <div id="quiz-footer">
                     <button class="button primary-button" onclick="showView('subject-view')">↩️ 과목 선택으로</button>
@@ -878,14 +961,36 @@ const firebaseConfig = {
         }
 
         const q = quizQuestions[currentQuizIndex];
+
+        // 2. 브레드크럼 (목차 경로) 생성
+        let breadcrumbHTML = '';
+        const path = [];
+        for (let i = 1; i <= 10; i++) {
+            if (q[`level${i}`]) path.push(q[`level${i}`]);
+            else break; 
+        }
+        if (path.length > 0) {
+            breadcrumbHTML = `<div id="quiz-breadcrumb" style="font-size: 0.9em; color: #666; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                                ${path.join(' &gt; ')}
+                              </div>`;
+        }
+
+        // 3. 객관식 보기 생성
         const optionsHTML = (q.options && q.options.length > 0) 
             ? q.options.map(opt => `<div class="option">${opt}</div>`).join('')
             : '<div class="form-group"><label for="subjective-answer">정답 입력:</label><input type="text" id="subjective-answer"></div>';
 
+        // ✨ 4. 배지 텍스트 변경: [No.번호] -> [고유번호.번호] ✨
+        const qidBadge = q.qid ? `<span style="color: #0d6efd; font-weight: bold; margin-right: 8px;">[고유번호.${q.qid}]</span>` : '';
+
+        // 5. 최종 화면 렌더링
         quizView.innerHTML = `
-            <div id="quiz-header">${currentQuizIndex + 1} / ${quizQuestions.length}</div>
+            <div id="quiz-header">
+                <span>문제 ${currentQuizIndex + 1} / ${quizQuestions.length}</span>
+            </div>
+            ${breadcrumbHTML}
             <div id="quiz-body">
-                <h4>${q.text}</h4>
+                <h4 style="line-height: 1.5;">${qidBadge}${q.text}</h4>
                 <div class="options-container">${optionsHTML}</div>
             </div>
             <div id="quiz-footer">
@@ -893,8 +998,9 @@ const firebaseConfig = {
                 <button id="submit-btn" class="button primary-button">정답 확인</button>
                 <button class="button light-button" onclick="exitQuiz()">↩️ 퀴즈 중단</button>
             </div>
-        `;
+        `; 
 
+        // 6. 이벤트 리스너 연결
         quizView.querySelectorAll('.option').forEach(el => {
             el.addEventListener('click', (e) => {
                 quizView.querySelectorAll('.option').forEach(opt => opt.classList.remove('selected'));
@@ -941,7 +1047,3 @@ const firebaseConfig = {
 </script>
 </body>
 </html>
-}
-`my-cbt-app.index 전체 코드.txt`
-
-`hypercodecreator.github.ioindex.htm 전체코드.txt`
