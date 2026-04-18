@@ -18,7 +18,59 @@
         .form-group input, .form-group textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; box-sizing: border-box; }
         .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; backdrop-filter: blur(4px); }
         .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 20px; z-index: 1001; width: 90%; max-width: 600px; }
+        /* ========================================================= */
+            /* [모바일 반응형 완벽 패치] 스마트폰 자동 맞춤 UI */
+            /* ========================================================= */
+            @media screen and (max-width: 768px) {
+                body { padding: 10px !important; }
+                div[style*="max-width"] {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    box-sizing: border-box !important;
+                    padding: 15px !important;
+                    margin: 0 auto !important;
+                }
+                div[style*="justify-content:space-between"][style*="border-bottom"] {
+                    flex-direction: column !important;
+                    gap: 10px !important;
+                    text-align: center !important;
+                }
+                div[style*="justify-content: space-around"] {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    gap: 15px !important;
+                }
+                div[style*="justify-content: space-around"] > div {
+                    width: 100% !important;
+                }
+                div[style*="justify-content:space-between"] {
+                    flex-wrap: wrap !important;
+                    gap: 10px !important;
+                }
+                div[style*="display:flex; gap:5px;"], 
+                div[style*="display:flex; gap:10px;"] {
+                    flex-wrap: wrap !important;
+                }
+                #quiz-view div[style*="justify-content:space-between"] {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                }
+                #quiz-view div[style*="background:#f1f5f9"] {
+                    justify-content: center !important;
+                    width: 100% !important;
+                    box-sizing: border-box !important;
+                }
+                input[type="text"], input[type="number"], select, textarea {
+                    font-size: 16px !important; 
+                    width: 100% !important;
+                }
+                #chk-btn, #nxt-btn {
+                    height: 60px !important;
+                    font-size: 1.2em !important;
+                }
+            }
     </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 </head>
 <body>
     <div class="container">
