@@ -1,97 +1,30 @@
 // =========================================================
-// [v10.0.1] app-logic.js: Part 1 - Ultimate Mobile Override
+// [v10.0.2] app-logic.js: Part 1 - Ultimate Mobile & Failsafe Boot
 // =========================================================
 
-// 🚨 1. 모바일 반응형 '절대 강제' 주입 엔진 (가로 짤림 원천 봉쇄)
+// 🚨 1. 모바일 반응형 강제 주입 엔진 (가로 짤림 완벽 방어)
 (function injectUltimateMobileCSS() {
     if (document.getElementById('ultimate-mobile-css')) return;
-
     const meta = document.createElement('meta');
     meta.name = 'viewport'; meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
     document.head.appendChild(meta);
-
     const style = document.createElement('style');
     style.id = 'ultimate-mobile-css';
     style.innerHTML = `
-        /* 📱 스마트폰 화면 (가로 768px 이하) 절대 규칙 */
         @media screen and (max-width: 768px) {
-            /* 화면 가로 스크롤(짤림) 원천 봉쇄 */
-            html, body {
-                max-width: 100vw !important;
-                overflow-x: hidden !important;
-                padding: 5px !important;
-                margin: 0 !important;
+            body { padding: 0 !important; background: white !important; }
+            .container { width: 100vw !important; max-width: 100vw !important; margin: 0 !important; padding: 15px !important; border-radius: 0 !important; box-shadow: none !important; }
+            * { box-sizing: border-box !important; max-width: 100vw !important; }
+            div[style*="display: flex"], div[style*="display:flex"] { flex-wrap: wrap !important; }
+            div[style*="justify-content: space-around"], div[style*="justify-content:space-around"],
+            div[style*="justify-content: space-between"], div[style*="justify-content:space-between"] {
+                flex-direction: column !important; align-items: stretch !important; gap: 10px !important;
             }
-
-            /* 넓게 고정된 컨테이너 및 팝업창들을 100%로 억제 */
-            .container, 
-            div[style*="max-width:800px"], div[style*="max-width: 800px"],
-            div[style*="max-width:700px"], div[style*="max-width: 700px"],
-            div[style*="max-width:900px"], div[style*="max-width: 900px"],
-            .modal {
-                width: 100% !important;
-                max-width: 100vw !important;
-                box-sizing: border-box !important;
-                padding: 15px !important;
-                margin: 0 auto !important;
-                min-width: 0 !important;
-            }
-
-            /* 비교표 등 좌우 분할 화면을 위아래(세로)로 변경 */
-            div[style*="display:flex"][style*="min-height"], 
-            div[style*="display: flex"][style*="min-height"] {
-                flex-direction: column !important;
-                min-height: auto !important;
-            }
-            
-            /* 좌측 사이드바(300px 고정)를 화면 꽉 차게 풀기 */
-            div[style*="width:300px"], div[style*="width: 300px"] {
-                width: 100% !important;
-                border-right: none !important;
-                border-bottom: 2px solid #e2e8f0 !important;
-                padding-right: 0 !important;
-                margin-bottom: 15px !important;
-            }
-
-            /* 양끝 정렬된 헤더/타이틀 영역 세로로 쌓기 */
-            div[style*="justify-content:space-between"],
-            div[style*="justify-content: space-between"] {
-                flex-direction: column !important;
-                align-items: stretch !important;
-                gap: 12px !important;
-            }
-
-            /* 가로로 나열된 버튼 뭉치들 줄바꿈 허용 */
-            div[style*="display:flex; gap:10px;"], div[style*="display: flex; gap: 10px;"],
-            div[style*="display:flex; gap:5px;"], div[style*="display: flex; gap: 5px;"] {
-                flex-wrap: wrap !important;
-                justify-content: stretch !important;
-            }
-            
-            /* 버튼 터치 최적화 (가로 꽉 채우기) */
-            .button {
-                width: 100% !important;
-                margin-bottom: 5px !important;
-                box-sizing: border-box !important;
-                text-align: center !important;
-            }
-
-            /* 입력창 자동확대 방지 및 꽉 채우기 */
-            input, select, textarea {
-                font-size: 16px !important;
-                width: 100% !important;
-                box-sizing: border-box !important;
-            }
-
-            /* 표(테이블)가 화면을 뚫지 않게 테이블 전용 스크롤 생성 */
-            table {
-                display: block !important;
-                width: 100% !important;
-                overflow-x: auto !important;
-                white-space: nowrap !important;
-            }
-            
-            /* 리스트 간격 최적화 */
+            div[style*="justify-content"] > div { width: 100% !important; margin-bottom: 5px !important; }
+            div[style*="width:300px"], div[style*="width: 300px"] { width: 100% !important; border-right: none !important; border-bottom: 2px solid #e2e8f0 !important; padding-right: 0 !important; margin-bottom: 15px !important; }
+            input, select, textarea { font-size: 16px !important; width: 100% !important; }
+            .button { width: 100% !important; margin-bottom: 5px !important; text-align: center !important; }
+            table { display: block !important; overflow-x: auto !important; white-space: nowrap !important; }
             .category-group { margin-left: 5px !important; }
             .draggable-item { padding: 10px !important; }
         }
@@ -99,7 +32,7 @@
     document.head.appendChild(style);
 })();
 
-// 🚨 2. 알림창(팝업) 제거 및 부드러운 하단 토스트 메시지
+// 🚨 2. 부드러운 하단 토스트 알림 메시지 (경고창 제거)
 window.esc = (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 window.showToast = function(msg) { 
     const t = document.createElement('div');
@@ -109,15 +42,33 @@ window.showToast = function(msg) {
     setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2000);
 };
 
+// 🚨 3. 무적의 부팅 엔진 (에러가 나도 앱이 멈추지 않고 데이터를 불러옴!)
 window.startApp = function() {
-    window.renderBaseUI(); window.renderVersionHeader();
+    try { if(typeof window.renderBaseUI === 'function') window.renderBaseUI(); } catch(e) {}
+    try { if(typeof window.renderVersionHeader === 'function') window.renderVersionHeader(); } catch(e) {}
+    
+    if(!window.auth) {
+        console.error("Firebase Auth 미로딩"); return;
+    }
+
     window.auth.onAuthStateChanged(async (user) => {
-        if(user){ const el=document.getElementById('user-email'); if(el) el.textContent=user.email+"님 환영합니다."; window.showView('subject-view'); await window.loadSubjects(); } else { window.showView('login-view'); }
+        try {
+            if(user){ 
+                const el = document.getElementById('user-email'); 
+                if(el) el.textContent = (user.email || "사용자") + "님 환영합니다."; 
+                if(typeof window.showView === 'function') window.showView('subject-view'); 
+                if(typeof window.loadSubjects === 'function') await window.loadSubjects(); 
+            } else { 
+                if(typeof window.showView === 'function') window.showView('login-view'); 
+            }
+        } catch(err) {
+            console.error("데이터 로드 에러:", err);
+        }
     });
 };
 window.logOut = function() { if(confirm("로그아웃 하시겠습니까?")) { window.auth.signOut(); location.reload(); } };
 
-// 🚨 3. 화면 이탈 시 전역 오디오 스탑 패치
+// 🚨 4. 전역 화면 이동 & 오디오(TTS) 스탑 패치
 if(!window.isViewHooked) {
     const origShowView = window.showView;
     window.showView = function(id) {
@@ -127,12 +78,12 @@ if(!window.isViewHooked) {
         window.currentPlayingCompId = null;
         if(window.speechSynthesis) window.speechSynthesis.cancel();
         document.querySelectorAll('.audio-btn').forEach(b => { b.innerHTML = "🎧 듣기"; b.style.background = ""; b.style.color = "#b45309"; });
-        origShowView(id);
+        if(typeof origShowView === 'function') origShowView(id);
     };
     window.isViewHooked = true;
 }
 
-// --- D&D 및 UI 로직 ---
+// --- D&D 및 UI 헬퍼 함수 ---
 window.toggleInlineMoveUI = function(itemId) { const el = document.getElementById(`move-ui-${itemId}`); if(el) el.classList.toggle('hidden'); };
 window.toggleCatMoveUI = function(catId) { const el = document.getElementById(`cat-move-ui-${catId}`); if(el) el.classList.toggle('hidden'); };
 window.toggleInlineCreateUI = function(colName) { const el = document.getElementById(`inline-create-${colName}`); if(el) el.classList.toggle('hidden'); };
@@ -183,9 +134,7 @@ window.handleImageUpload = function(input, targetEl) {
 window.openImageModal = function(src, desc='') {
     const qTextEl = document.querySelector('.q-text-display');
     let textHtml = '';
-    if (qTextEl) {
-        textHtml = `<div style="color:white; font-size:1.1em; font-weight:bold; margin-bottom:20px; padding:15px 25px; background:rgba(0,0,0,0.75); border-radius:12px; max-width:90vw; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.5); line-height:1.5;">${qTextEl.innerHTML}</div>`;
-    }
+    if (qTextEl) { textHtml = `<div style="color:white; font-size:1.1em; font-weight:bold; margin-bottom:20px; padding:15px 25px; background:rgba(0,0,0,0.75); border-radius:12px; max-width:90vw; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.5); line-height:1.5;">${qTextEl.innerHTML}</div>`; }
     let descHtml = desc ? `<div style="color:#fcd34d; font-size:1.1em; font-weight:bold; margin-top:15px; background:rgba(0,0,0,0.65); padding:10px 20px; border-radius:8px;">${desc}</div>` : '';
     
     const m = document.getElementById('modal-container');
