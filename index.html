@@ -4,48 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>나만의 CBT 학습 센터</title>
-    
     <style>
         body { font-family: -apple-system, system-ui, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; overflow-x: hidden; }
         .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .hidden { display: none !important; }
-        .button { padding: 10px 15px; font-size: 0.9rem; border-radius: 8px; cursor: pointer; border: 1px solid #dee2e6; font-weight: 600; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; }
+        .button { padding: 10px 15px; font-size: 0.9rem; border-radius: 8px; cursor: pointer; border: 1px solid #dee2e6; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
         .primary-button { background-color: #3b82f6; color: white; border: none; }
         .secondary-button { background-color: #64748b; color: white; border: none; }
         .light-button { background-color: #f8f9fa; color: #212529; }
         .small-button { padding: 5px 10px; font-size: 0.8em; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input, .form-group textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; box-sizing: border-box; }
-        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; backdrop-filter: blur(4px); }
+        input, textarea, select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; box-sizing: border-box; }
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
         .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 20px; z-index: 1001; width: 90%; max-width: 600px; }
 
         /* ========================================================= */
-        /* 🚀 초강력 모바일 전용 반응형 스타일 (가로 짤림 원천 봉쇄) */
+        /* 🚀 초강력 모바일 덮어쓰기 (가로 짤림 원천 차단) */
         /* ========================================================= */
-        @media screen and (max-width: 768px) {
-            body { padding: 0 !important; background: white !important; }
-            .container { width: 100vw !important; max-width: 100vw !important; margin: 0 !important; padding: 15px !important; border-radius: 0 !important; box-shadow: none !important; }
-            * { box-sizing: border-box !important; max-width: 100vw !important; }
+        @media screen and (max-width: 850px) {
+            html, body { padding: 0 !important; margin: 0 !important; overflow-x: hidden !important; width: 100vw !important; background: #f0f2f5 !important; }
+            .container { padding: 10px !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
             
-            /* 가로 박스들을 강제로 세로로 꺾기 */
-            div[style*="display: flex"], div[style*="display:flex"] { flex-wrap: wrap !important; }
-            div[style*="justify-content: space-around"], div[style*="justify-content:space-around"],
-            div[style*="justify-content: space-between"], div[style*="justify-content:space-between"] {
-                flex-direction: column !important; align-items: stretch !important; gap: 10px !important;
+            /* JS로 주입된 강력한 넓이 고정값(min-width) 무력화 */
+            div { min-width: 0 !important; } 
+            
+            /* PC용 넓은 박스들 100%로 억제 */
+            div[style*="width: 300px"], div[style*="width:300px"],
+            div[style*="max-width: 800px"], div[style*="max-width:800px"],
+            div[style*="max-width: 900px"], div[style*="max-width:900px"] {
+                width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; border-right: none !important; margin-bottom: 10px !important;
             }
-            div[style*="justify-content"] > div { width: 100% !important; margin-bottom: 5px !important; }
-            div[style*="width:300px"], div[style*="width: 300px"] { width: 100% !important; border-right: none !important; border-bottom: 2px solid #e2e8f0 !important; padding-right: 0 !important; margin-bottom: 15px !important; }
             
-            input, select, textarea { font-size: 16px !important; width: 100% !important; }
-            .button { width: 100% !important; margin-bottom: 5px !important; text-align: center !important; }
-            table { display: block !important; overflow-x: auto !important; white-space: nowrap !important; }
-            .category-group { margin-left: 5px !important; }
-            .draggable-item { padding: 10px !important; }
+            /* 가로로 나열되는 것들을 세로로 쌓기 */
+            div[style*="display: flex"], div[style*="display:flex"] { flex-wrap: wrap !important; }
+            div[style*="justify-content: space-between"], div[style*="justify-content:space-between"] {
+                flex-direction: column !important; align-items: stretch !important; gap: 8px !important; text-align: center !important;
+            }
+            
+            /* 버튼 최적화 */
+            .button, div[style*="justify-content: space-between"] > button { width: 100% !important; margin-bottom: 5px !important; text-align: center; }
+            table { display: block !important; width: 100% !important; overflow-x: auto !important; }
+            input, select, textarea { font-size: 16px !important; } /* 폰트가 작아서 화면이 확대되는 현상 방지 */
         }
     </style>
 </head>
-
 <body>
     <div class="container">
         <div id="auth-container"></div>
@@ -58,7 +59,6 @@
         <div id="note-view" class="hidden"></div>
         <div id="rhythm-view" class="hidden"></div>
     </div>
-    
     <div id="modal-container" class="hidden"></div>
 
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -69,5 +69,21 @@
     <script src="app-ui.js"></script>
     <script src="app-parser.js"></script>
     <script src="app-logic.js"></script>
+
+    <script>
+        function smashInlineStyles() {
+            if(window.innerWidth <= 850) {
+                document.querySelectorAll('div').forEach(el => {
+                    if(el.style.minWidth) el.style.minWidth = '0px';
+                    if(el.style.width === '300px' || el.style.width === '800px') el.style.width = '100%';
+                    if(el.style.display === 'flex' && (el.style.justifyContent === 'space-between' || el.style.justifyContent === 'space-around')) {
+                        el.style.flexDirection = 'column';
+                        el.style.alignItems = 'stretch';
+                    }
+                });
+            }
+        }
+        setInterval(smashInlineStyles, 1000); // 앱이 화면을 새로 그릴 때마다 모바일 규격으로 박살냄
+    </script>
 </body>
 </html>
