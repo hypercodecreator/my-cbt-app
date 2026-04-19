@@ -1,49 +1,18 @@
 // =========================================================
-// [v10.1.5] app-logic.js: Part 1 - Clean Engine & Failsafe
+// [v9.2.0] app-logic.js: Part 1 - Smart Zoom Modal & Flawless D&D
 // =========================================================
 
-// 🚨 1. 알림창(팝업) 제거 및 부드러운 하단 토스트 메시지
 window.esc = (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-window.showToast = function(msg) { 
-    const t = document.createElement('div');
-    t.textContent = msg;
-    t.style.cssText = "position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(15,23,42,0.9); color:white; padding:12px 24px; border-radius:30px; z-index:999999; font-weight:bold; box-shadow:0 4px 12px rgba(0,0,0,0.3); transition: opacity 0.3s;";
-    document.body.appendChild(t);
-    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2000);
-};
+window.showToast = function(msg) { alert(msg); };
 
-// 🚨 2. 무적 부팅 엔진 (에러 방어)
 window.startApp = function() {
-    if(typeof window.renderBaseUI === 'function') window.renderBaseUI();
-    if(typeof window.renderVersionHeader === 'function') window.renderVersionHeader();
-    
+    window.renderBaseUI(); window.renderVersionHeader();
     window.auth.onAuthStateChanged(async (user) => {
-        if(user){ 
-            const el = document.getElementById('user-email'); 
-            if(el) el.textContent = user.email + "님 환영합니다."; 
-            window.showView('subject-view'); 
-            await window.loadSubjects(); 
-        } else { 
-            window.showView('login-view'); 
-        }
+        if(user){ const el=document.getElementById('user-email'); if(el) el.textContent=user.email+"님 환영합니다."; window.showView('subject-view'); await window.loadSubjects(); } else { window.showView('login-view'); }
     });
 };
 window.logOut = function() { if(confirm("로그아웃 하시겠습니까?")) { window.auth.signOut(); location.reload(); } };
 
-// 🚨 3. 화면 이탈 시 오디오(TTS) 스탑
-if(!window.isViewHooked) {
-    const origShowView = window.showView;
-    window.showView = function(id) {
-        window.audioSessionId = (window.audioSessionId || 0) + 1;
-        window.isAudioPlaying = false;
-        if(window.speechSynthesis) window.speechSynthesis.cancel();
-        document.querySelectorAll('.audio-btn').forEach(b => { b.innerHTML = "🎧 듣기"; b.style.background = ""; b.style.color = "#b45309"; });
-        origShowView(id);
-    };
-    window.isViewHooked = true;
-}
-
-// --- D&D 및 UI 헬퍼 함수 ---
 window.toggleInlineMoveUI = function(itemId) { const el = document.getElementById(`move-ui-${itemId}`); if(el) el.classList.toggle('hidden'); };
 window.toggleCatMoveUI = function(catId) { const el = document.getElementById(`cat-move-ui-${catId}`); if(el) el.classList.toggle('hidden'); };
 window.toggleInlineCreateUI = function(colName) { const el = document.getElementById(`inline-create-${colName}`); if(el) el.classList.toggle('hidden'); };
@@ -60,7 +29,9 @@ window.updateFolderVisibility = function() {
     document.querySelectorAll('.category-group').forEach(el => {
         const cat = el.getAttribute('data-cat'); if(!cat) return;
         let isVisible = true;
-        for (let collapsedCat of window.collapsedFolders) { if (cat !== collapsedCat && cat.startsWith(collapsedCat + '/')) { isVisible = false; break; } }
+        for (let collapsedCat of window.collapsedFolders) {
+            if (cat !== collapsedCat && cat.startsWith(collapsedCat + '/')) { isVisible = false; break; }
+        }
         el.style.display = isVisible ? 'block' : 'none';
     });
     document.querySelectorAll('.cat-content-wrapper').forEach(el => {
@@ -71,7 +42,7 @@ window.updateFolderVisibility = function() {
 
 window.execInlineCreate = async function(colName) {
     const inp = document.getElementById(`create-inp-${colName}`).value.trim();
-    if(!inp) return window.showToast("폴더 이름을 입력하세요."); window.showLoading();
+    if(!inp) return alert("폴더 이름을 입력하세요."); window.showLoading();
     const orderRef = db.collection('settings').doc(`order_${colName}_${window.currentSubjectId||'main'}`);
     const doc = await orderRef.get(); let order = doc.exists ? doc.data().order : window.lastRenderedCategories[colName] || [];
     if(!order.includes(inp)) { order.push(inp); await orderRef.set({ order }); }
@@ -82,13 +53,20 @@ window.execInlineCreate = async function(colName) {
 window.handleImageUpload = function(input, targetEl) {
     const file = input.files[0]; if(!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) { if(typeof targetEl === 'string') document.getElementById(targetEl).value = e.target.result; else targetEl.value = e.target.result; };
+    reader.onload = function(e) { 
+        if(typeof targetEl === 'string') document.getElementById(targetEl).value = e.target.result;
+        else targetEl.value = e.target.result; 
+    };
     reader.readAsDataURL(file);
 };
 
+// 🚨 문제 지문과 함께 보여주는 스마트 줌(Zoom) 모달
 window.openImageModal = function(src, desc='') {
     const qTextEl = document.querySelector('.q-text-display');
-    let textHtml = qTextEl ? `<div style="color:white; font-size:1.1em; font-weight:bold; margin-bottom:20px; padding:15px 25px; background:rgba(0,0,0,0.75); border-radius:12px; max-width:90vw; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.5); line-height:1.5;">${qTextEl.innerHTML}</div>` : '';
+    let textHtml = '';
+    if (qTextEl) {
+        textHtml = `<div style="color:white; font-size:1.1em; font-weight:bold; margin-bottom:20px; padding:15px 25px; background:rgba(0,0,0,0.75); border-radius:12px; max-width:90vw; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.5); line-height:1.5;">${qTextEl.innerHTML}</div>`;
+    }
     let descHtml = desc ? `<div style="color:#fcd34d; font-size:1.1em; font-weight:bold; margin-top:15px; background:rgba(0,0,0,0.65); padding:10px 20px; border-radius:8px;">${desc}</div>` : '';
     
     const m = document.getElementById('modal-container');
@@ -139,7 +117,7 @@ window.onDropOnCategory = async function(e, targetCat, colName) {
     
     const raw = e.dataTransfer.getData('application/json'); if(!raw) return;
     let data; try { data = JSON.parse(raw); } catch(err) { return; }
-    if(data.colName !== colName) return window.showToast("다른 종류의 데이터입니다.");
+    if(data.colName !== colName) return alert("다른 종류의 데이터입니다.");
     if(data.currentCat === targetCat && data.type === 'category') return; 
     
     window.showLoading();
@@ -203,6 +181,7 @@ window.onDropOnItem = async function(e, targetId, colName) {
             if (dragIdx > -1 && tgtIdx > -1) {
                 const [dragItem] = items.splice(dragIdx, 1);
                 items.splice(tgtIdx, 0, dragItem); 
+                
                 const batch = db.batch();
                 items.forEach((item, index) => { batch.update(query.doc(item.id), { qid: index + 1 }); });
                 await batch.commit();
@@ -225,7 +204,7 @@ window.refreshView = function(colName) {
 
 window.execInlineMove = async function(itemId, colName) {
     const sel = document.getElementById(`move-sel-${itemId}`).value; const inp = document.getElementById(`move-inp-${itemId}`).value.trim();
-    const targetCat = inp || sel; if(!targetCat) return window.showToast("이동할 위치를 지정하세요.");
+    const targetCat = inp || sel; if(!targetCat) return alert("이동할 위치를 지정하세요.");
     window.showLoading(); const field = colName === 'subjects' ? 'semester' : 'category';
     let ref = db.collection(colName).doc(itemId); if(colName !== 'subjects') ref = db.collection('subjects').doc(window.currentSubjectId).collection(colName).doc(itemId);
     await ref.update({ [field]: targetCat }); window.hideLoading(); window.refreshView(colName);
@@ -233,7 +212,7 @@ window.execInlineMove = async function(itemId, colName) {
 
 window.execCatMove = async function(oldCat, catId, colName) {
     const sel = document.getElementById(`cat-move-sel-${catId}`).value; const inp = document.getElementById(`cat-move-inp-${catId}`).value.trim();
-    const parentCat = inp || sel; if(!parentCat) return window.showToast("상위 폴더를 지정하세요.");
+    const parentCat = inp || sel; if(!parentCat) return alert("상위 폴더를 지정하세요.");
     const folderName = oldCat.split('/').pop(); const newCatName = parentCat === '최상위' ? folderName : parentCat + '/' + folderName;
     if (newCatName === oldCat) return; window.showLoading();
     const field = colName === 'subjects' ? 'semester' : 'category';
