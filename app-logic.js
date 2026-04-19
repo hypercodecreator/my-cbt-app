@@ -1,8 +1,8 @@
 // =========================================================
-// [v10.1.0] app-logic.js: Part 1 - Safe Toast & Bug Fix
+// [v10.1.5] app-logic.js: Part 1 - Clean Engine & Failsafe
 // =========================================================
 
-// 🚨 1. 알림창(팝업) 제거 및 부드러운 하단 토스트 메시지 교체
+// 🚨 1. 알림창(팝업) 제거 및 부드러운 하단 토스트 메시지
 window.esc = (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 window.showToast = function(msg) { 
     const t = document.createElement('div');
@@ -12,22 +12,30 @@ window.showToast = function(msg) {
     setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2000);
 };
 
+// 🚨 2. 무적 부팅 엔진 (에러 방어)
 window.startApp = function() {
-    window.renderBaseUI(); window.renderVersionHeader();
+    if(typeof window.renderBaseUI === 'function') window.renderBaseUI();
+    if(typeof window.renderVersionHeader === 'function') window.renderVersionHeader();
+    
     window.auth.onAuthStateChanged(async (user) => {
-        if(user){ const el=document.getElementById('user-email'); if(el) el.textContent=user.email+"님 환영합니다."; window.showView('subject-view'); await window.loadSubjects(); } else { window.showView('login-view'); }
+        if(user){ 
+            const el = document.getElementById('user-email'); 
+            if(el) el.textContent = user.email + "님 환영합니다."; 
+            window.showView('subject-view'); 
+            await window.loadSubjects(); 
+        } else { 
+            window.showView('login-view'); 
+        }
     });
 };
 window.logOut = function() { if(confirm("로그아웃 하시겠습니까?")) { window.auth.signOut(); location.reload(); } };
 
-// 🚨 2. 화면 이탈 시 전역 오디오(TTS) 스탑 패치
+// 🚨 3. 화면 이탈 시 오디오(TTS) 스탑
 if(!window.isViewHooked) {
     const origShowView = window.showView;
     window.showView = function(id) {
         window.audioSessionId = (window.audioSessionId || 0) + 1;
         window.isAudioPlaying = false;
-        window.currentPlayingNoteId = null;
-        window.currentPlayingCompId = null;
         if(window.speechSynthesis) window.speechSynthesis.cancel();
         document.querySelectorAll('.audio-btn').forEach(b => { b.innerHTML = "🎧 듣기"; b.style.background = ""; b.style.color = "#b45309"; });
         origShowView(id);
@@ -52,9 +60,7 @@ window.updateFolderVisibility = function() {
     document.querySelectorAll('.category-group').forEach(el => {
         const cat = el.getAttribute('data-cat'); if(!cat) return;
         let isVisible = true;
-        for (let collapsedCat of window.collapsedFolders) {
-            if (cat !== collapsedCat && cat.startsWith(collapsedCat + '/')) { isVisible = false; break; }
-        }
+        for (let collapsedCat of window.collapsedFolders) { if (cat !== collapsedCat && cat.startsWith(collapsedCat + '/')) { isVisible = false; break; } }
         el.style.display = isVisible ? 'block' : 'none';
     });
     document.querySelectorAll('.cat-content-wrapper').forEach(el => {
@@ -76,17 +82,13 @@ window.execInlineCreate = async function(colName) {
 window.handleImageUpload = function(input, targetEl) {
     const file = input.files[0]; if(!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) { 
-        if(typeof targetEl === 'string') document.getElementById(targetEl).value = e.target.result;
-        else targetEl.value = e.target.result; 
-    };
+    reader.onload = function(e) { if(typeof targetEl === 'string') document.getElementById(targetEl).value = e.target.result; else targetEl.value = e.target.result; };
     reader.readAsDataURL(file);
 };
 
 window.openImageModal = function(src, desc='') {
     const qTextEl = document.querySelector('.q-text-display');
-    let textHtml = '';
-    if (qTextEl) { textHtml = `<div style="color:white; font-size:1.1em; font-weight:bold; margin-bottom:20px; padding:15px 25px; background:rgba(0,0,0,0.75); border-radius:12px; max-width:90vw; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.5); line-height:1.5;">${qTextEl.innerHTML}</div>`; }
+    let textHtml = qTextEl ? `<div style="color:white; font-size:1.1em; font-weight:bold; margin-bottom:20px; padding:15px 25px; background:rgba(0,0,0,0.75); border-radius:12px; max-width:90vw; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.5); line-height:1.5;">${qTextEl.innerHTML}</div>` : '';
     let descHtml = desc ? `<div style="color:#fcd34d; font-size:1.1em; font-weight:bold; margin-top:15px; background:rgba(0,0,0,0.65); padding:10px 20px; border-radius:8px;">${desc}</div>` : '';
     
     const m = document.getElementById('modal-container');
@@ -201,7 +203,6 @@ window.onDropOnItem = async function(e, targetId, colName) {
             if (dragIdx > -1 && tgtIdx > -1) {
                 const [dragItem] = items.splice(dragIdx, 1);
                 items.splice(tgtIdx, 0, dragItem); 
-                
                 const batch = db.batch();
                 items.forEach((item, index) => { batch.update(query.doc(item.id), { qid: index + 1 }); });
                 await batch.commit();
