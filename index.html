@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>나만의 CBT 학습 센터</title>
+    
     <style>
+        /* 🎨 기본 PC 디자인 (건드리지 않음) */
         body { font-family: -apple-system, system-ui, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
         .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .hidden { display: none !important; }
@@ -18,31 +20,37 @@
         .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 20px; z-index: 1001; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
 
         /* ========================================================= */
-        /* 🛡️ 안전한 모바일 반응형 CSS (PC에는 절대 영향 안 줌!) */
+        /* 📱 초강력 스마트폰 맞춤형 디자인 (가로 짤림 원천 봉쇄) */
         /* ========================================================= */
         @media screen and (max-width: 768px) {
-            body { padding: 5px !important; }
-            .container { padding: 15px !important; margin: 0 !important; width: 100% !important; border-radius: 0 !important; }
+            body { padding: 0 !important; overflow-x: hidden !important; }
+            .container { padding: 15px !important; margin: 0 !important; width: 100vw !important; max-width: 100vw !important; border-radius: 0 !important; box-sizing: border-box !important; }
             
-            /* 가로로 넓게 고정된 박스들의 제한 해제 */
+            /* 가로폭을 강제로 늘리는 모든 요소들을 100%로 억제 */
+            * { max-width: 100% !important; box-sizing: border-box !important; }
+            
+            /* 넓은 박스들을 화면에 꽉 차게 만들기 */
             div[style*="width: 300px"], div[style*="width:300px"],
             div[style*="max-width: 800px"], div[style*="max-width:800px"],
-            div[style*="min-width: 600px"], div[style*="min-width:600px"] {
-                width: 100% !important; max-width: 100% !important; min-width: 0 !important; border-right: none !important;
+            div[style*="max-width: 900px"], div[style*="max-width:900px"] {
+                width: 100% !important; border-right: none !important; padding: 10px !important; margin-bottom: 10px !important;
             }
             
-            /* PC용 가로 정렬(Flex)을 모바일용 세로 정렬로 부드럽게 변경 */
-            #subject-view > div[style*="justify-content: space-around"],
-            .draggable-item > div[style*="display:flex"],
-            .draggable-item > div[style*="display: flex"] {
-                flex-direction: column !important;
-                align-items: stretch !important;
-                gap: 10px !important;
+            /* 가로로 나열된 아이템들을 강제로 세로로 쌓기 */
+            div[style*="display: flex"], div[style*="display:flex"] { flex-wrap: wrap !important; }
+            div[style*="justify-content: space-around"], div[style*="justify-content:space-around"],
+            div[style*="justify-content: space-between"], div[style*="justify-content:space-between"] {
+                flex-direction: column !important; align-items: stretch !important; gap: 8px !important; text-align: center !important;
             }
             
-            .button { width: 100% !important; margin-bottom: 5px !important; text-align: center; }
-            input, select { font-size: 16px !important; }
-            table { display: block !important; overflow-x: auto !important; white-space: nowrap !important; }
+            /* 입력창 글씨 커짐(화면 확대) 방지 */
+            input, select, textarea { font-size: 16px !important; }
+            
+            /* 버튼들이 모바일 화면을 뚫지 않게 세로 정렬 */
+            .button { width: 100% !important; margin-bottom: 5px !important; margin-right: 0 !important; }
+            
+            /* 표(비교표) 가로 스크롤 허용 */
+            table { display: block !important; overflow-x: auto !important; white-space: nowrap !important; width: 100% !important; }
         }
     </style>
 </head>
