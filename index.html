@@ -37,6 +37,13 @@
 <body>
     <div class="container">
         <div id="auth-container"></div>
+        
+        <div id="login-view" class="hidden" style="text-align:center; padding:60px 20px;">
+            <h1 style="color:#4f46e5; margin-bottom:10px;">나만의 CBT 학습 센터</h1>
+            <p style="color:#64748b; margin-bottom:40px;">학습 기록을 위해 로그인이 필요합니다.</p>
+            <button class="button primary-button" style="font-size:1.2em; padding:15px 30px; border-radius:30px; box-shadow:0 4px 10px rgba(0,0,0,0.1);" onclick="signInWithGoogle()">🚀 Google 계정으로 로그인</button>
+        </div>
+
         <div id="subject-view" class="hidden"></div>
         <div id="management-view" class="hidden"></div>
         <div id="quiz-view" class="hidden"></div>
@@ -52,13 +59,39 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
-    <script src="app-db.js?v=0420_final"></script>
-    <script src="app-ui.js?v=0420_final"></script>
-    <script src="app-parser.js?v=0420_final"></script>
-    <script src="app-logic.js?v=0420_final"></script>
+    <script src="app-db.js?v=20260420_eureka"></script>
+    <script src="app-ui.js?v=20260420_eureka"></script>
+    <script src="app-parser.js?v=20260420_eureka"></script>
+    <script src="app-logic.js?v=20260420_eureka"></script>
 
     <button id="view-toggle-btn" onclick="toggleViewMode()">📱 모바일 모드 켜기</button>
     <script>
+        // 🚨 로그인 기능 로직
+        function signInWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            window.auth.signInWithPopup(provider).catch(err => {
+                alert("로그인 에러: " + err.message);
+            });
+        }
+
+        // 로그인 화면을 강제로 인식시키는 덮어쓰기 코드
+        const checkShowView = setInterval(() => {
+            if(typeof window.showView === 'function') {
+                clearInterval(checkShowView);
+                const origShowView = window.showView;
+                window.showView = function(id) {
+                    if(id === 'login-view') {
+                        document.querySelectorAll('.container > div').forEach(el => el.classList.add('hidden'));
+                        document.getElementById('login-view').classList.remove('hidden');
+                    } else {
+                        document.getElementById('login-view').classList.add('hidden');
+                        origShowView(id);
+                    }
+                };
+            }
+        }, 100);
+
+        // 모바일 스위치 제어
         function toggleViewMode() {
             document.body.classList.toggle('mobile-mode');
             const btn = document.getElementById('view-toggle-btn');
@@ -72,12 +105,14 @@
                 localStorage.setItem('viewMode', 'pc');
             }
         }
+        
         if(localStorage.getItem('viewMode') === 'mobile') {
             document.body.classList.add('mobile-mode');
             const btn = document.getElementById('view-toggle-btn');
             if(btn) { btn.innerHTML = '💻 PC 모드로 복귀'; btn.style.background = '#0f172a'; }
         }
 
+        // 앱 시작 트리거
         document.addEventListener('DOMContentLoaded', () => {
             const initCheck = setInterval(() => {
                 if (window.db && window.auth && typeof window.startApp === 'function') { 
