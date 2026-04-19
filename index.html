@@ -38,10 +38,18 @@
     <div class="container">
         <div id="auth-container"></div>
         
-        <div id="login-view" class="hidden" style="text-align:center; padding:60px 20px;">
+        <div id="login-view" class="hidden" style="text-align:center; padding:50px 20px;">
             <h1 style="color:#4f46e5; margin-bottom:10px;">나만의 CBT 학습 센터</h1>
-            <p style="color:#64748b; margin-bottom:40px;">학습 기록을 위해 로그인이 필요합니다.</p>
-            <button class="button primary-button" style="font-size:1.2em; padding:15px 30px; border-radius:30px; box-shadow:0 4px 10px rgba(0,0,0,0.1);" onclick="signInWithGoogle()">🚀 Google 계정으로 로그인</button>
+            <p style="color:#64748b; margin-bottom:30px;">학습 기록을 위해 로그인이 필요합니다.</p>
+            
+            <button class="button primary-button" style="font-size:1.1em; padding:15px 20px; border-radius:30px; box-shadow:0 4px 10px rgba(0,0,0,0.1); margin-bottom: 25px; width: 100%; max-width: 320px;" onclick="signInWithGoogle()">🚀 Google 계정으로 로그인</button>
+            
+            <div style="margin: 0 auto; max-width: 320px; border-top: 1px solid #cbd5e1; padding-top: 25px;">
+                <p style="color:#64748b; font-size: 0.95em; margin-bottom: 15px; font-weight: bold;">또는 이메일로 로그인 (네이버 등)</p>
+                <input type="email" id="login-email" placeholder="이메일 (예: kihh05@naver.com)" style="width:100%; padding:12px; margin-bottom:10px; border-radius:8px; border:1px solid #cbd5e1; box-sizing:border-box;">
+                <input type="password" id="login-pw" placeholder="비밀번호" style="width:100%; padding:12px; margin-bottom:15px; border-radius:8px; border:1px solid #cbd5e1; box-sizing:border-box;">
+                <button class="button secondary-button" style="width:100%; padding:12px; border-radius:8px; font-size: 1em;" onclick="signInWithEmail()">📧 이메일 로그인</button>
+            </div>
         </div>
 
         <div id="subject-view" class="hidden"></div>
@@ -59,22 +67,31 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
-    <script src="app-db.js?v=20260420_eureka"></script>
-    <script src="app-ui.js?v=20260420_eureka"></script>
-    <script src="app-parser.js?v=20260420_eureka"></script>
-    <script src="app-logic.js?v=20260420_eureka"></script>
+    <script src="app-db.js?v=20260420_final2"></script>
+    <script src="app-ui.js?v=20260420_final2"></script>
+    <script src="app-parser.js?v=20260420_final2"></script>
+    <script src="app-logic.js?v=20260420_final2"></script>
 
     <button id="view-toggle-btn" onclick="toggleViewMode()">📱 모바일 모드 켜기</button>
+    
     <script>
-        // 🚨 로그인 기능 로직
+        // 🚨 1. 구글 로그인 (모바일 팝업 차단 방지를 위해 화면이 넘어가는 Redirect 방식 적용)
         function signInWithGoogle() {
             const provider = new firebase.auth.GoogleAuthProvider();
-            window.auth.signInWithPopup(provider).catch(err => {
-                alert("로그인 에러: " + err.message);
+            window.auth.signInWithRedirect(provider);
+        }
+
+        // 🚨 2. 네이버 이메일 등 기존 가입자용 로그인
+        function signInWithEmail() {
+            const email = document.getElementById('login-email').value.trim();
+            const pw = document.getElementById('login-pw').value;
+            if(!email || !pw) return alert("이메일과 비밀번호를 입력해주세요.");
+            window.auth.signInWithEmailAndPassword(email, pw).catch(err => {
+                alert("로그인 실패: 이메일이나 비밀번호를 확인해주세요.\n(" + err.message + ")");
             });
         }
 
-        // 로그인 화면을 강제로 인식시키는 덮어쓰기 코드
+        // 뷰 강제 전환 로직
         const checkShowView = setInterval(() => {
             if(typeof window.showView === 'function') {
                 clearInterval(checkShowView);
@@ -84,14 +101,15 @@
                         document.querySelectorAll('.container > div').forEach(el => el.classList.add('hidden'));
                         document.getElementById('login-view').classList.remove('hidden');
                     } else {
-                        document.getElementById('login-view').classList.add('hidden');
+                        const lv = document.getElementById('login-view');
+                        if(lv) lv.classList.add('hidden');
                         origShowView(id);
                     }
                 };
             }
         }, 100);
 
-        // 모바일 스위치 제어
+        // 모바일 스위치 기능
         function toggleViewMode() {
             document.body.classList.toggle('mobile-mode');
             const btn = document.getElementById('view-toggle-btn');
@@ -112,7 +130,6 @@
             if(btn) { btn.innerHTML = '💻 PC 모드로 복귀'; btn.style.background = '#0f172a'; }
         }
 
-        // 앱 시작 트리거
         document.addEventListener('DOMContentLoaded', () => {
             const initCheck = setInterval(() => {
                 if (window.db && window.auth && typeof window.startApp === 'function') { 
