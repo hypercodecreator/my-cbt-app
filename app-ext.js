@@ -1,0 +1,187 @@
+// =========================================================
+// [v10.5.0] app-ext.js: Extension Pack (Video, Case Study, Visual Map)
+// 기존 로직을 파괴하지 않고 글로벌 함수들을 덮어써서 확장합니다.
+// =========================================================
+
+// 1. 관리자 메뉴 상단 버튼 4가지(지정하신 순서) 덮어쓰기
+window.renderManagementView = function() {
+    window.showView('management-view');
+    document.getElementById('management-view').innerHTML = `<div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;"><h2>[${window.currentSubjectData.name}] 지식 관리</h2><div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="button small-button" style="background:#0284c7; color:white; border:none;" onclick="window.openVisualMapManager()">🗺️ 시각적 구조화</button>
+        <button class="button small-button" style="background:#ea580c; color:white; border:none;" onclick="window.openCaseStudyManager()">⚖️ 사례 분석 & 비사례</button>
+        <button class="button small-button" style="background:#8b5cf6; color:white; border:none;" onclick="window.openComparisonManager()">📊 다단 비교표</button> 
+        <button class="button small-button" style="background:#10b981; color:white; border:none;" onclick="window.openNoteManager()">📚 수업 노트</button>
+    </div></div>
+    <div style="background:#f8fafc; padding:15px; border-radius:12px; margin-bottom:15px; display:flex; gap:10px; flex-wrap:wrap;"><button class="button small-button light-button" onclick="window.selectAll(true)">전체 선택</button><button class="button small-button light-button" onclick="window.selectAll(false)">해제</button><button class="button small-button" style="background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe;" onclick="window.copySelected()">선택 복사</button><button class="button small-button" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;" onclick="window.deleteSelected()">선택 삭제</button><button class="button small-button primary-button" style="background:#8b5cf6; border:none;" onclick="window.toggleInlineCreateUI('questions')">+ 새 폴더 생성</button><div style="flex:1;"></div><button class="button small-button primary-button" onclick="window.showFullEditView()">+ 개별 추가</button><button class="button small-button" style="background:#ec4899; color:white; border:none;" onclick="window.showBulkAddModal()">🤖 스마트 추가</button></div>
+    <div id="inline-create-questions" class="hidden" style="margin-bottom:15px; padding:15px; background:#f1f5f9; border-radius:10px; border:2px dashed #cbd5e1; display:flex; gap:10px;"><input type="text" id="create-inp-questions" placeholder="새 폴더명 입력" style="flex:1; padding:10px; border-radius:6px; border:1px solid #cbd5e1;"><button class="button primary-button" onclick="window.execInlineCreate('questions')">생성</button><button class="button light-button" onclick="window.toggleInlineCreateUI('questions')">취소</button></div>
+    <div style="display:flex; gap:10px; margin-bottom:15px;"><input type="text" id="manage-search" placeholder="지식 내용 검색..." style="flex:1; padding:15px; border-radius:10px; border:2px solid #cbd5e1;" onkeyup="window.filterManagementList()"><button id="bm-filter-btn" class="button light-button" style="padding:0 15px; font-weight:bold; color:#f59e0b; border:1px solid #fcd34d;" onclick="window.toggleBmFilter()">⭐ 북마크</button><button id="gcm-filter-btn" class="button light-button" style="padding:0 15px; font-weight:bold;" onclick="window.toggleGcmFilter()">🔗 GCM</button></div><div id="q-list-wrapper"></div>`;
+    window.renderManagementList();
+};
+
+// 2. 동영상 업로드 지원 및 라벨 변경
+window.addQImageSlot = function(url = '', desc = '') {
+    const id = window.qImageCount++;
+    const container = document.getElementById('q-images-container');
+    const div = document.createElement('div'); div.className = 'q-img-slot';
+    div.innerHTML = `<div style="background:white; padding:15px; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:10px; position:relative;">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <span style="font-weight:bold; color:#64748b; font-size:1.2em;">🖼️/🎬</span>
+            <input type="text" class="q-img-url" value="${window.esc(url)}" placeholder="미디어 URL 입력 (동영상 또는 이미지)" style="flex:1; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.9em;">
+            <label class="button light-button" style="padding:8px 12px; cursor:pointer;">파일선택<input type="file" accept="image/*,video/mp4,video/webm" style="display:none;" onchange="window.handleImageUpload(this, this.parentElement.previousElementSibling)"></label>
+            <button class="button small-button" style="background:#fee2e2; color:#ef4444; border:none; padding:8px 12px;" onclick="this.closest('.q-img-slot').remove()">❌ 삭제</button>
+        </div>
+        <input type="text" class="q-img-desc" value="${window.esc(desc)}" placeholder="미디어 설명 / 캡션 (선택)" style="width:100%; margin-top:8px; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.9em; box-sizing:border-box;">
+    </div>`;
+    container.appendChild(div);
+};
+
+window.handleImageUpload = function(input, targetEl) {
+    const file = input.files[0]; if(!file) return;
+    if(file.type.startsWith('video/') && file.size > 5 * 1024 * 1024) {
+        alert("🚨 동영상은 5MB 이하만 업로드 권장합니다! 데이터베이스 용량이 초과될 수 있습니다. (유튜브나 구글 드라이브 링크 사용을 추천합니다)");
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) { 
+        if(typeof targetEl === 'string') document.getElementById(targetEl).value = e.target.result;
+        else targetEl.value = e.target.result; 
+    };
+    reader.readAsDataURL(file);
+};
+
+window.generateImageHtml = function(q) {
+    let mediaHtml = '';
+    const buildMedia = (url, desc) => {
+        const isVideo = url.match(/\.(mp4|webm|ogg)$/i) || url.startsWith('data:video');
+        let safeDesc = window.esc(desc||'').replace(/'/g,"\\'").replace(/"/g,"&quot;");
+        if(isVideo) {
+            return `<div style="text-align:center; flex:1; min-width:200px; max-width:100%;"><video src="${window.esc(url)}" controls preload="metadata" style="max-width:100%; max-height:250px; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); background:black;"></video><p style="font-size:0.85em; color:#64748b; margin-top:8px; font-weight:bold;">🎬 ${window.esc(desc||'')}</p></div>`;
+        } else {
+            return `<div style="text-align:center; flex:1; min-width:200px; max-width:48%;"><img src="${window.esc(url)}" onclick="window.openImageModal(this.src, '${safeDesc}')" style="max-width:100%; max-height:200px; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); cursor:zoom-in;"><p style="font-size:0.85em; color:#64748b; margin-top:8px;">${window.esc(desc||'')}</p></div>`;
+        }
+    };
+    if (q.images && q.images.length > 0) {
+        let validImgs = q.images.filter(img => img.url);
+        if (validImgs.length > 0) { mediaHtml = '<div style="display:flex; justify-content:center; gap:15px; flex-wrap:wrap; margin:15px 0;">' + validImgs.map(img => buildMedia(img.url, img.desc)).join('') + '</div>'; }
+    } else if (q.imageUrl) { 
+        mediaHtml = '<div style="display:flex; justify-content:center; gap:15px; flex-wrap:wrap; margin:15px 0;">' + buildMedia(q.imageUrl, q.imageDesc) + '</div>';
+    }
+    return mediaHtml;
+};
+
+// 3. 편집기 이름 수정 (도식 및 핵심 공식 또는 원리)
+const origShowFullEditView = window.showFullEditView;
+window.showFullEditView = function(qId=null) {
+    origShowFullEditView(qId);
+    setTimeout(() => {
+        const txt = document.getElementById('add-edit-view').innerHTML;
+        document.getElementById('add-edit-view').innerHTML = txt.replace('📐 도식 및 핵심 공식</label>', '📐 도식 및 핵심 공식 또는 원리</label>');
+    }, 50);
+};
+
+// =========================================================
+// NEW: 시각적 구조화 (Visual Maps) Manager
+// =========================================================
+window.currentVisualMaps = [];
+window.openVisualMapManager = async function() { window.showView('visual-map-view'); window.showLoading(); const snap=await window.fetchWithCache(db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').orderBy('createdAt','desc')); window.currentVisualMaps=snap.docs.map(d=>({id:d.id,...d.data()})); window.filteredVisualMaps=[...window.currentVisualMaps]; window.hideLoading(); window.renderVisualMapUI(); };
+window.renderVisualMapUI = function() { 
+    document.getElementById('visual-map-view').innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;"><h2 style="margin:0; color:#0284c7;">🗺️ 시각적 구조화 관리</h2><div><button class="button small-button primary-button" style="background:#0284c7; border:none; margin-right:10px;" onclick="window.showVisualMapEditor()">+ 새 구조화 작성</button><button class="button small-button light-button" onclick="window.manageSubject('${window.currentSubjectId}')">돌아가기</button></div></div>
+    <div style="display:flex; gap:10px; margin-bottom:15px;"><button class="button small-button primary-button" style="background:#0369a1; border:none;" onclick="window.toggleInlineCreateUI('visualMaps')">+ 새 폴더 생성</button></div>
+    <div id="inline-create-visualMaps" class="hidden" style="margin-bottom:15px; padding:15px; background:#f0f9ff; border-radius:10px; border:2px dashed #bae6fd; display:flex; gap:10px;"><input type="text" id="create-inp-visualMaps" placeholder="새 폴더명 입력" style="flex:1; padding:10px; border-radius:6px; border:1px solid #bae6fd;"><button class="button primary-button" onclick="window.execInlineCreate('visualMaps')">생성</button><button class="button light-button" onclick="window.toggleInlineCreateUI('visualMaps')">취소</button></div>
+    <div id="vmap-list-wrapper"></div>`; 
+    window.renderVisualMapList(); 
+};
+window.renderVisualMapList = () => { 
+    const wrap = document.getElementById('vmap-list-wrapper'); if(!wrap) return; 
+    if(window.filteredVisualMaps.length===0) return wrap.innerHTML=`<div style="padding:50px; text-align:center; color:#94a3b8; background:white; border-radius:15px; border:1px solid #e0f2fe;">데이터가 없습니다.</div>`; 
+    const grouped = window.filteredVisualMaps.reduce((acc, n) => { const cat = n.category || "미분류"; if(!acc[cat]) acc[cat] = []; acc[cat].push(n); return acc; }, {});
+    const orderDoc = db.collection('settings').doc(`order_visualMaps_${window.currentSubjectId}`);
+    let allCats = Array.from(new Set([...(window.lastRenderedCategories['visualMaps']||[]), ...Object.keys(grouped)])).sort();
+    allCats.forEach(c => { if(!grouped[c]) grouped[c] = []; }); window.lastRenderedCategories['visualMaps'] = allCats;
+    let html = '';
+    allCats.forEach(cat => {
+        const catId = cat.replace(/[^a-zA-Z0-9]/g, '-'); const catOpts = allCats.filter(c => c !== cat).map(c=>`<option value="${c}">${c}</option>`).join('');
+        html += `<div class="category-group" data-cat="${cat}" style="margin-bottom:20px; border:1px solid #bae6fd; border-radius:12px; background:white; overflow:hidden;">
+            <div draggable="true" ondragstart="window.onDragStart(event, 'category', '${cat}', 'visualMaps', '${cat}')" ondrop="window.onDropOnCategory(event, '${cat}', 'visualMaps')" ondragover="window.onDragOverCat(event)" ondragleave="window.onDragLeaveCat(event)" style="background:#f0f9ff; padding:15px; display:flex; justify-content:space-between; cursor:pointer;" onclick="window.toggleFolder('${cat}', 'v-icon-${catId}')">
+                <b style="color:#0284c7; display:flex; align-items:center; gap:8px;"><span id="v-icon-${catId}">${window.collapsedFolders.includes(cat)?'📁':'📂'}</span> ${window.esc(cat.split('/').pop())} (${grouped[cat].length})</b>
+                <div style="display:flex; gap:5px;" onclick="event.stopPropagation()"><button class="button small-button light-button" onclick="window.toggleCatMoveUI('${catId}')">이동</button><button class="button small-button light-button" onclick="window.renameCategoryPrompt('${cat}', 'visualMaps')">✏️</button><button class="button small-button light-button" style="color:red;" onclick="window.deleteCategoryPrompt('${cat}', 'visualMaps')">🗑️</button></div>
+            </div>
+            <div id="cat-move-ui-${catId}" class="hidden" style="padding:10px 15px; background:#fffbeb; display:flex; gap:10px;" onclick="event.stopPropagation()"><select id="cat-move-sel-${catId}" style="flex:1; padding:8px;"><option value="최상위">-- 최상위 분리 --</option>${catOpts}</select><button class="button primary-button" onclick="window.execCatMove('${cat}', '${catId}', 'visualMaps')">적용</button></div>
+            <div class="cat-content-wrapper" data-parent-cat="${cat}" style="padding:10px;">
+            ${grouped[cat].map(n=> `
+                <div class="draggable-item" draggable="true" ondragstart="window.onDragStart(event, 'item', '${n.id}', 'visualMaps', '${cat}')" ondrop="window.onDropOnItem(event, '${n.id}', 'visualMaps')" ondragover="window.onDragOverItem(event)" ondragleave="window.onDragLeaveItem(event)" style="border:1px solid #e0f2fe; border-radius:10px; margin-bottom:10px; background:white;">
+                    <div style="display:flex; justify-content:space-between; padding:15px; background:#f8fafc; cursor:pointer;" onclick="window.toggleAccordion('vmap-c-${n.id}', '')">
+                        <h4 style="margin:0; font-size:1.1em; color:#0369a1;">🗺️ ${window.esc(n.title)}</h4>
+                        <div style="display:flex; gap:5px;" onclick="event.stopPropagation()"><button class="button small-button light-button" onclick="window.toggleInlineMoveUI('${n.id}')">📂 이동</button><button class="button small-button light-button" onclick="window.showVisualMapEditor('${n.id}')">✏️ 수정</button></div>
+                    </div>
+                    <div id="move-ui-${n.id}" class="hidden" style="padding:10px; background:#f0f9ff; border-top:1px solid #e0f2fe; display:flex; gap:8px;" onclick="event.stopPropagation()"><select id="move-sel-${n.id}" style="flex:1; padding:5px;">${catOpts}</select><input type="text" id="move-inp-${n.id}" placeholder="새 폴더명" style="width:120px; padding:5px;"><button class="button small-button primary-button" onclick="window.execInlineMove('${n.id}', 'visualMaps')">확인</button></div>
+                    <div id="vmap-c-${n.id}" class="hidden" style="padding:20px; border-top:1px dashed #bae6fd;"><p style="white-space:pre-wrap; margin:0; line-height:1.6; color:#0f172a;">${window.esc(n.content)}</p></div>
+                </div>`).join('')}
+            </div></div>`;
+    }); 
+    wrap.innerHTML = html; window.updateFolderVisibility();
+};
+window.showVisualMapEditor = function(id=null) { 
+    const v = id ? window.currentVisualMaps.find(x=>x.id===id) : {category:'미분류',title:'',content:''};
+    document.getElementById('visual-map-view').innerHTML=`<div style="background:white; padding:30px; border-radius:20px; max-width:800px; margin:auto;"><div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h2 style="color:#0284c7;">🗺️ 시각적 구조화 편집</h2><button class="button small-button light-button" onclick="window.openVisualMapManager()">취소</button></div><div class="form-group"><label>📂 폴더</label><input type="text" id="v-cat" value="${window.esc(v.category)}" style="padding:15px;"></div><div class="form-group"><label>제목</label><input type="text" id="v-t" value="${window.esc(v.title)}" style="padding:15px;"></div><div class="form-group"><label>내용 (마크다운 및 텍스트 구조)</label><textarea id="v-c" style="height:300px; padding:15px; font-family:monospace;">${window.esc(v.content)}</textarea></div><button class="button primary-button" style="width:100%; height:60px;" onclick="window.saveVisualMap('${id||''}')">💾 저장</button></div>`; 
+};
+window.saveVisualMap = async function(id) { const cat=document.getElementById('v-cat').value.trim()||'미분류'; const t=document.getElementById('v-t').value.trim(); const c=document.getElementById('v-c').value; if(!t)return alert("제목 입력"); window.showLoading(); if(id) await db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').doc(id).update({category:cat, title:t,content:c, updatedAt: firebase.firestore.FieldValue.serverTimestamp()}); else await db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').add({category:cat, title:t,content:c, createdAt: firebase.firestore.FieldValue.serverTimestamp()}); window.openVisualMapManager(); };
+
+// =========================================================
+// NEW: 사례 분석 & 비사례 (Case Studies) Manager
+// =========================================================
+window.currentCaseStudies = []; window.selectedCaseId = null;
+window.openCaseStudyManager = async function() { window.showView('case-study-view'); window.showLoading(); const snap=await window.fetchWithCache(db.collection('subjects').doc(window.currentSubjectId).collection('caseStudies')); window.currentCaseStudies=snap.docs.map(d=>({id: d.id, ...d.data()})); window.filteredCaseStudies = [...window.currentCaseStudies]; if(window.filteredCaseStudies.length>0 && !window.selectedCaseId) window.selectedCaseId=window.filteredCaseStudies[0].id; window.hideLoading(); window.renderCaseStudyUI(); };
+window.renderCaseStudyUI = function() { 
+    const c=document.getElementById('case-study-view'); 
+    let h=`<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h2 style="margin:0; color:#ea580c;">⚖️ 사례 분석 & 비사례 관리</h2><button class="button small-button light-button" onclick="window.manageSubject('${window.currentSubjectId}')">돌아가기</button></div>
+    <div style="display:flex; gap:10px; margin-bottom:15px;"><button class="button small-button primary-button" style="background:#ea580c; border:none;" onclick="window.toggleInlineCreateUI('caseStudies')">+ 새 폴더 생성</button></div>
+    <div id="inline-create-caseStudies" class="hidden" style="margin-bottom:15px; padding:15px; background:#fff7ed; border-radius:10px; border:2px dashed #fed7aa; display:flex; gap:10px;"><input type="text" id="create-inp-caseStudies" placeholder="새 폴더명" style="flex:1; padding:10px; border-radius:6px; border:1px solid #fed7aa;"><button class="button primary-button" onclick="window.execInlineCreate('caseStudies')">생성</button><button class="button light-button" onclick="window.toggleInlineCreateUI('caseStudies')">취소</button></div>`;
+    let layout=`<div style="display:flex; background:#fff; padding:20px; border-radius:20px; border:1px solid #e2e8f0; min-height:600px; flex-wrap:wrap;"><div style="width:300px; border-right:1px solid #e2e8f0; padding-right:15px; display:flex; flex-direction:column; min-width:300px;"><button class="button small-button primary-button" style="width:100%; margin-bottom:15px; background:#ea580c;" onclick="window.showCaseStudyEditor()">+ 새 사례 분석 작성</button><div id="cs-list-wrapper" style="flex:1; overflow-y:auto; padding-right:10px;"></div></div><div id="cs-main-wrapper" style="flex:1; padding-left:20px; overflow-y:auto; min-width:300px;"></div></div>`;
+    c.innerHTML = h + layout; window.renderCaseStudyList(); window.renderCaseStudyMain();
+};
+window.renderCaseStudyList = () => { 
+    const wrap = document.getElementById('cs-list-wrapper'); if(!wrap) return; 
+    if(window.filteredCaseStudies.length === 0) return wrap.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;">데이터 없음</div>';
+    const grouped = window.filteredCaseStudies.reduce((acc, c) => { const cat = c.category || '미분류'; if(!acc[cat]) acc[cat] = []; acc[cat].push(c); return acc; }, {});
+    let allCats = Array.from(new Set([...(window.lastRenderedCategories['caseStudies']||[]), ...Object.keys(grouped)])).sort();
+    allCats.forEach(c => { if(!grouped[c]) grouped[c] = []; }); window.lastRenderedCategories['caseStudies'] = allCats;
+    let html = '';
+    allCats.forEach(cat => {
+        const catId = cat.replace(/[^a-zA-Z0-9]/g, '-'); const catOpts = allCats.filter(c => c !== cat).map(c=>`<option value="${c}">${c}</option>`).join('');
+        html += `<div class="category-group" data-cat="${cat}" style="margin-bottom:10px; border:1px solid #fed7aa; border-radius:8px; overflow:hidden;">
+            <div draggable="true" ondragstart="window.onDragStart(event, 'category', '${cat}', 'caseStudies', '${cat}')" ondrop="window.onDropOnCategory(event, '${cat}', 'caseStudies')" ondragover="window.onDragOverCat(event)" ondragleave="window.onDragLeaveCat(event)" style="background:#fff7ed; padding:10px; cursor:pointer; display:flex; justify-content:space-between;" onclick="window.toggleFolder('${cat}', 'cs-icon-${catId}')">
+                <b style="color:#c2410c; font-size:0.9em;"><span id="cs-icon-${catId}">${window.collapsedFolders.includes(cat)?'📁':'📂'}</span> ${window.esc(cat.split('/').pop())} (${grouped[cat].length})</b>
+                <div style="display:flex; gap:5px;" onclick="event.stopPropagation()"><button class="button small-button light-button" onclick="window.toggleCatMoveUI('${catId}')">이동</button><button class="button small-button light-button" onclick="window.renameCategoryPrompt('${cat}', 'caseStudies')">✏️</button><button class="button small-button light-button" style="color:red;" onclick="window.deleteCategoryPrompt('${cat}', 'caseStudies')">🗑️</button></div>
+            </div>
+            <div id="cat-move-ui-${catId}" class="hidden" style="padding:10px; background:#fffbeb; display:flex;" onclick="event.stopPropagation()"><select id="cat-move-sel-${catId}" style="width:100%; padding:5px;">${catOpts}</select><button class="button primary-button" onclick="window.execCatMove('${cat}', '${catId}', 'caseStudies')">적용</button></div>
+            <div class="cat-content-wrapper" data-parent-cat="${cat}" style="padding:5px;">
+            ${grouped[cat].map(c=>`
+                <div class="draggable-item" draggable="true" ondragstart="window.onDragStart(event, 'item', '${c.id}', 'caseStudies', '${cat}')" ondrop="window.onDropOnItem(event, '${c.id}', 'caseStudies')" ondragover="window.onDragOverItem(event)" ondragleave="window.onDragLeaveItem(event)" style="padding:10px; background:${c.id===window.selectedCaseId?'#ffedd5':'white'}; border:1px solid #fed7aa; border-radius:6px; margin-bottom:5px;">
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <div onclick="window.selectedCaseId='${c.id}'; window.renderCaseStudyList(); window.renderCaseStudyMain();" style="cursor:pointer; flex:1; font-size:0.85em; font-weight:bold;">${window.esc(c.title)}</div>
+                        <button class="button small-button light-button" onclick="window.toggleInlineMoveUI('${c.id}')">📂</button>
+                    </div>
+                    <div id="move-ui-${c.id}" class="hidden" style="margin-top:8px; display:flex; gap:5px;" onclick="event.stopPropagation()"><select id="move-sel-${c.id}" style="width:100%; padding:4px;">${catOpts}</select><button class="button small-button primary-button" onclick="window.execInlineMove('${c.id}', 'caseStudies')">이동</button></div>
+                </div>`).join('')}
+            </div></div>`;
+    }); 
+    wrap.innerHTML = html; window.updateFolderVisibility();
+};
+window.renderCaseStudyMain = () => { 
+    const wrap = document.getElementById('cs-main-wrapper'); if(!wrap) return; 
+    const s=window.currentCaseStudies.find(x=>x.id===window.selectedCaseId); 
+    if(s){ 
+        wrap.innerHTML=`<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 style="margin:0; border-left:4px solid #ea580c; padding-left:15px;">${window.esc(s.title)}</h3><button class="button small-button light-button" onclick="window.showCaseStudyEditor('${s.id}')">✏️ 내용 수정하기</button></div>
+        <table style="width:100%; border-collapse:collapse; border:1px solid #cbd5e1; background:white; border-radius:8px; overflow:hidden; table-layout:fixed;">
+            <thead><tr style="background:#111827; color:white;"><th style="padding:15px; width:20%; border-right:1px solid #334155;">구분</th><th style="padding:15px; width:40%; border-right:1px solid #334155;">구체적 사례 (Case Study)</th><th style="padding:15px; width:40%;">비-사례 (Non-example)</th></tr></thead>
+            <tbody>
+                <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; font-weight:bold; background:#f8fafc; border-right:1px solid #e2e8f0;">상황</td><td style="padding:15px; border-right:1px solid #e2e8f0;">${window.esc(s.sit_c)}</td><td style="padding:15px;">${window.esc(s.sit_n)}</td></tr>
+                <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; font-weight:bold; background:#f8fafc; border-right:1px solid #e2e8f0;">작용 원리</td><td style="padding:15px; border-right:1px solid #e2e8f0;">${window.esc(s.pri_c)}</td><td style="padding:15px;">${window.esc(s.pri_n)}</td></tr>
+                <tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:15px; font-weight:bold; background:#f8fafc; border-right:1px solid #e2e8f0;">생리적 상태</td><td style="padding:15px; border-right:1px solid #e2e8f0;">${window.esc(s.sta_c)}</td><td style="padding:15px;">${window.esc(s.sta_n)}</td></tr>
+                <tr><td style="padding:15px; font-weight:bold; background:#f8fafc; border-right:1px solid #e2e8f0;">학습 포인트</td><td style="padding:15px; border-right:1px solid #e2e8f0;">${window.esc(s.pnt_c)}</td><td style="padding:15px;">${window.esc(s.pnt_n)}</td></tr>
+            </tbody>
+        </table>`; 
+    } else { wrap.innerHTML=`<div style="height:100%; display:flex; align-items:center; justify-content:center; color:#94a3b8; background:#fff7ed; border:2px dashed #fed7aa;">사례 분석을 선택하세요.</div>`; } 
+};
+window.showCaseStudyEditor = function(id=null) { window.showView('add-edit-view'); const s=id?window.currentCaseStudies.find(x=>x.id===id):{title:'',category:'미분류',sit_c:'',sit_n:'',pri_c:'',pri_n:'',sta_c:'',sta_n:'',pnt_c:'',pnt_n:''}; document.getElementById('add-edit-view').innerHTML=`<div style="background:white; padding:30px; border-radius:20px; border:1px solid #e2e8f0; max-width:900px; margin:auto;"><div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h2 style="color:#ea580c;">⚖️ 사례 분석 편집</h2><button class="button small-button light-button" onclick="window.openCaseStudyManager()">취소</button></div><div style="display:flex; gap:10px;"><div class="form-group" style="flex:1;"><label>📂 폴더</label><input type="text" id="s-cat" value="${window.esc(s.category)}" style="padding:12px;"></div><div class="form-group" style="flex:2;"><label>제목</label><input type="text" id="s-t" value="${window.esc(s.title)}" style="padding:12px;"></div></div><div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; background:#fff7ed; padding:15px; border-radius:8px; border:1px solid #fed7aa;"><h3 style="grid-column:span 2; margin:0 0 10px 0; color:#c2410c;">상황</h3><textarea id="s-sit-c" placeholder="사례 상황" style="padding:10px; height:80px;">${window.esc(s.sit_c)}</textarea><textarea id="s-sit-n" placeholder="비-사례 상황" style="padding:10px; height:80px;">${window.esc(s.sit_n)}</textarea><h3 style="grid-column:span 2; margin:10px 0 0 0; color:#c2410c;">작용 원리</h3><textarea id="s-pri-c" style="padding:10px; height:80px;">${window.esc(s.pri_c)}</textarea><textarea id="s-pri-n" style="padding:10px; height:80px;">${window.esc(s.pri_n)}</textarea><h3 style="grid-column:span 2; margin:10px 0 0 0; color:#c2410c;">생리적 상태</h3><textarea id="s-sta-c" style="padding:10px; height:80px;">${window.esc(s.sta_c)}</textarea><textarea id="s-sta-n" style="padding:10px; height:80px;">${window.esc(s.sta_n)}</textarea><h3 style="grid-column:span 2; margin:10px 0 0 0; color:#c2410c;">학습 포인트</h3><textarea id="s-pnt-c" style="padding:10px; height:80px;">${window.esc(s.pnt_c)}</textarea><textarea id="s-pnt-n" style="padding:10px; height:80px;">${window.esc(s.pnt_n)}</textarea></div><button class="button primary-button" style="width:100%; height:60px; margin-top:20px;" onclick="window.saveCaseStudy('${id||''}')">💾 저장</button></div>`; };
+window.saveCaseStudy = async function(id) { const cat=document.getElementById('s-cat').value.trim()||'미분류'; const t=document.getElementById('s-t').value.trim(); if(!t)return; const data={category:cat, title:t, sit_c:document.getElementById('s-sit-c').value, sit_n:document.getElementById('s-sit-n').value, pri_c:document.getElementById('s-pri-c').value, pri_n:document.getElementById('s-pri-n').value, sta_c:document.getElementById('s-sta-c').value, sta_n:document.getElementById('s-sta-n').value, pnt_c:document.getElementById('s-pnt-c').value, pnt_n:document.getElementById('s-pnt-n').value, updatedAt: firebase.firestore.FieldValue.serverTimestamp()}; window.showLoading(); if(id) await db.collection('subjects').doc(window.currentSubjectId).collection('caseStudies').doc(id).update(data); else { data.createdAt=firebase.firestore.FieldValue.serverTimestamp(); await db.collection('subjects').doc(window.currentSubjectId).collection('caseStudies').add(data); } window.openCaseStudyManager(); };
