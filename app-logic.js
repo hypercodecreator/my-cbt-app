@@ -1,52 +1,8 @@
 // =========================================================
-// [v10.0.5] app-logic.js: Part 1 - Safe Mobile Injection & Toast
+// [v10.1.0] app-logic.js: Part 1 - Safe Toast & Bug Fix
 // =========================================================
 
-// 🚨 1. 모바일 반응형 강제 주입 (index.html 수정 없이 JS로 안전하게 처리!)
-(function injectSafeMobileCSS() {
-    if (document.getElementById('safe-mobile-meta')) return;
-    
-    // 스마트폰 렌즈 장착
-    const meta = document.createElement('meta');
-    meta.id = 'safe-mobile-meta';
-    meta.name = 'viewport';
-    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-    document.head.appendChild(meta);
-
-    // 모바일 전용 변신 스타일
-    const style = document.createElement('style');
-    style.id = 'safe-mobile-style';
-    style.innerHTML = `
-        @media screen and (max-width: 768px) {
-            body { padding: 5px !important; overflow-x: hidden !important; }
-            .container { width: 100vw !important; max-width: 100vw !important; margin: 0 !important; padding: 15px !important; box-sizing: border-box !important; border-radius: 0 !important; box-shadow: none !important; }
-            
-            /* 고정폭 박스 100% 변환 */
-            div[style*="width: 300px"], div[style*="width:300px"],
-            div[style*="max-width: 800px"], div[style*="max-width:800px"],
-            div[style*="max-width: 900px"], div[style*="max-width:900px"] {
-                width: 100% !important; max-width: 100vw !important; min-width: 0 !important; box-sizing: border-box !important; border-right: none !important; margin-bottom: 10px !important;
-            }
-            
-            /* 레이아웃 세로 정렬 */
-            div[style*="display: flex"], div[style*="display:flex"] { flex-wrap: wrap !important; }
-            div[style*="justify-content: space-between"], div[style*="justify-content:space-between"],
-            div[style*="justify-content: space-around"], div[style*="justify-content:space-around"] {
-                flex-direction: column !important; align-items: stretch !important; gap: 10px !important;
-            }
-            
-            /* 폼 요소 및 버튼 모바일 최적화 */
-            input, select, textarea { font-size: 16px !important; width: 100% !important; box-sizing: border-box !important; }
-            .button { width: 100% !important; margin-bottom: 5px !important; text-align: center !important; }
-            table { display: block !important; overflow-x: auto !important; white-space: nowrap !important; }
-            .category-group { margin-left: 5px !important; }
-            .draggable-item { padding: 10px !important; }
-        }
-    `;
-    document.head.appendChild(style);
-})();
-
-// 🚨 2. 알림창(팝업) 제거 및 부드러운 하단 토스트 메시지
+// 🚨 1. 알림창(팝업) 제거 및 부드러운 하단 토스트 메시지 교체
 window.esc = (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 window.showToast = function(msg) { 
     const t = document.createElement('div');
@@ -64,7 +20,7 @@ window.startApp = function() {
 };
 window.logOut = function() { if(confirm("로그아웃 하시겠습니까?")) { window.auth.signOut(); location.reload(); } };
 
-// 🚨 3. 화면 이탈 시 전역 오디오 스탑 패치
+// 🚨 2. 화면 이탈 시 전역 오디오(TTS) 스탑 패치
 if(!window.isViewHooked) {
     const origShowView = window.showView;
     window.showView = function(id) {
