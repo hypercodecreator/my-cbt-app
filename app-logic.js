@@ -1,28 +1,42 @@
 // =========================================================
-// [v10.0.2] app-logic.js: Part 1 - Ultimate Mobile & Failsafe Boot
+// [v10.0.5] app-logic.js: Part 1 - Safe Mobile Injection & Toast
 // =========================================================
 
-// 🚨 1. 모바일 반응형 강제 주입 엔진 (가로 짤림 완벽 방어)
-(function injectUltimateMobileCSS() {
-    if (document.getElementById('ultimate-mobile-css')) return;
+// 🚨 1. 모바일 반응형 강제 주입 (index.html 수정 없이 JS로 안전하게 처리!)
+(function injectSafeMobileCSS() {
+    if (document.getElementById('safe-mobile-meta')) return;
+    
+    // 스마트폰 렌즈 장착
     const meta = document.createElement('meta');
-    meta.name = 'viewport'; meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+    meta.id = 'safe-mobile-meta';
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
     document.head.appendChild(meta);
+
+    // 모바일 전용 변신 스타일
     const style = document.createElement('style');
-    style.id = 'ultimate-mobile-css';
+    style.id = 'safe-mobile-style';
     style.innerHTML = `
         @media screen and (max-width: 768px) {
-            body { padding: 0 !important; background: white !important; }
-            .container { width: 100vw !important; max-width: 100vw !important; margin: 0 !important; padding: 15px !important; border-radius: 0 !important; box-shadow: none !important; }
-            * { box-sizing: border-box !important; max-width: 100vw !important; }
+            body { padding: 5px !important; overflow-x: hidden !important; }
+            .container { width: 100vw !important; max-width: 100vw !important; margin: 0 !important; padding: 15px !important; box-sizing: border-box !important; border-radius: 0 !important; box-shadow: none !important; }
+            
+            /* 고정폭 박스 100% 변환 */
+            div[style*="width: 300px"], div[style*="width:300px"],
+            div[style*="max-width: 800px"], div[style*="max-width:800px"],
+            div[style*="max-width: 900px"], div[style*="max-width:900px"] {
+                width: 100% !important; max-width: 100vw !important; min-width: 0 !important; box-sizing: border-box !important; border-right: none !important; margin-bottom: 10px !important;
+            }
+            
+            /* 레이아웃 세로 정렬 */
             div[style*="display: flex"], div[style*="display:flex"] { flex-wrap: wrap !important; }
-            div[style*="justify-content: space-around"], div[style*="justify-content:space-around"],
-            div[style*="justify-content: space-between"], div[style*="justify-content:space-between"] {
+            div[style*="justify-content: space-between"], div[style*="justify-content:space-between"],
+            div[style*="justify-content: space-around"], div[style*="justify-content:space-around"] {
                 flex-direction: column !important; align-items: stretch !important; gap: 10px !important;
             }
-            div[style*="justify-content"] > div { width: 100% !important; margin-bottom: 5px !important; }
-            div[style*="width:300px"], div[style*="width: 300px"] { width: 100% !important; border-right: none !important; border-bottom: 2px solid #e2e8f0 !important; padding-right: 0 !important; margin-bottom: 15px !important; }
-            input, select, textarea { font-size: 16px !important; width: 100% !important; }
+            
+            /* 폼 요소 및 버튼 모바일 최적화 */
+            input, select, textarea { font-size: 16px !important; width: 100% !important; box-sizing: border-box !important; }
             .button { width: 100% !important; margin-bottom: 5px !important; text-align: center !important; }
             table { display: block !important; overflow-x: auto !important; white-space: nowrap !important; }
             .category-group { margin-left: 5px !important; }
@@ -32,7 +46,7 @@
     document.head.appendChild(style);
 })();
 
-// 🚨 2. 부드러운 하단 토스트 알림 메시지 (경고창 제거)
+// 🚨 2. 알림창(팝업) 제거 및 부드러운 하단 토스트 메시지
 window.esc = (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 window.showToast = function(msg) { 
     const t = document.createElement('div');
@@ -42,33 +56,15 @@ window.showToast = function(msg) {
     setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2000);
 };
 
-// 🚨 3. 무적의 부팅 엔진 (에러가 나도 앱이 멈추지 않고 데이터를 불러옴!)
 window.startApp = function() {
-    try { if(typeof window.renderBaseUI === 'function') window.renderBaseUI(); } catch(e) {}
-    try { if(typeof window.renderVersionHeader === 'function') window.renderVersionHeader(); } catch(e) {}
-    
-    if(!window.auth) {
-        console.error("Firebase Auth 미로딩"); return;
-    }
-
+    window.renderBaseUI(); window.renderVersionHeader();
     window.auth.onAuthStateChanged(async (user) => {
-        try {
-            if(user){ 
-                const el = document.getElementById('user-email'); 
-                if(el) el.textContent = (user.email || "사용자") + "님 환영합니다."; 
-                if(typeof window.showView === 'function') window.showView('subject-view'); 
-                if(typeof window.loadSubjects === 'function') await window.loadSubjects(); 
-            } else { 
-                if(typeof window.showView === 'function') window.showView('login-view'); 
-            }
-        } catch(err) {
-            console.error("데이터 로드 에러:", err);
-        }
+        if(user){ const el=document.getElementById('user-email'); if(el) el.textContent=user.email+"님 환영합니다."; window.showView('subject-view'); await window.loadSubjects(); } else { window.showView('login-view'); }
     });
 };
 window.logOut = function() { if(confirm("로그아웃 하시겠습니까?")) { window.auth.signOut(); location.reload(); } };
 
-// 🚨 4. 전역 화면 이동 & 오디오(TTS) 스탑 패치
+// 🚨 3. 화면 이탈 시 전역 오디오 스탑 패치
 if(!window.isViewHooked) {
     const origShowView = window.showView;
     window.showView = function(id) {
@@ -78,7 +74,7 @@ if(!window.isViewHooked) {
         window.currentPlayingCompId = null;
         if(window.speechSynthesis) window.speechSynthesis.cancel();
         document.querySelectorAll('.audio-btn').forEach(b => { b.innerHTML = "🎧 듣기"; b.style.background = ""; b.style.color = "#b45309"; });
-        if(typeof origShowView === 'function') origShowView(id);
+        origShowView(id);
     };
     window.isViewHooked = true;
 }
