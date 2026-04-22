@@ -1,9 +1,15 @@
 // =========================================================
-// [v10.5.0] app-ext.js: Extension Pack (Video, Case Study, Visual Map)
-// 기존 로직을 파괴하지 않고 글로벌 함수들을 덮어써서 확장합니다.
+// [v16.6.0] app-ext.js: Extension Pack (Core Remind, Bug Fixes, Visual/Case Study)
 // =========================================================
 
-// 1. 관리자 메뉴 상단 버튼 4가지(지정하신 순서) 덮어쓰기
+// 🚨 0. 치명적 버그 수정: 누락된 화면(시각적 구조화, 사례 분석) 백지화 현상 해결
+window.showView = function(id) {
+    const views = ['subject-view', 'management-view', 'quiz-view', 'add-edit-view', 'note-view', 'flashcard-view', 'rhythm-view', 'compare-view', 'visual-map-view', 'case-study-view'];
+    views.forEach(v => { const el = document.getElementById(v); if (el) el.classList.toggle('hidden', v !== id); });
+    window.scrollTo(0, 0);
+};
+
+// 1. 관리자 메뉴 상단 버튼 덮어쓰기
 window.renderManagementView = function() {
     window.showView('management-view');
     document.getElementById('management-view').innerHTML = `<div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;"><h2>[${window.currentSubjectData.name}] 지식 관리</h2><div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -18,7 +24,7 @@ window.renderManagementView = function() {
     window.renderManagementList();
 };
 
-// 2. 동영상 업로드 지원 및 라벨 변경
+// 2. 동영상 업로드 지원
 window.addQImageSlot = function(url = '', desc = '') {
     const id = window.qImageCount++;
     const container = document.getElementById('q-images-container');
@@ -35,23 +41,10 @@ window.addQImageSlot = function(url = '', desc = '') {
     container.appendChild(div);
 };
 
-window.handleImageUpload = function(input, targetEl) {
-    const file = input.files[0]; if(!file) return;
-    if(file.type.startsWith('video/') && file.size > 5 * 1024 * 1024) {
-        alert("🚨 동영상은 5MB 이하만 업로드 권장합니다! 데이터베이스 용량이 초과될 수 있습니다. (유튜브나 구글 드라이브 링크 사용을 추천합니다)");
-    }
-    const reader = new FileReader();
-    reader.onload = function(e) { 
-        if(typeof targetEl === 'string') document.getElementById(targetEl).value = e.target.result;
-        else targetEl.value = e.target.result; 
-    };
-    reader.readAsDataURL(file);
-};
-
 window.generateImageHtml = function(q) {
     let mediaHtml = '';
     const buildMedia = (url, desc) => {
-        const isVideo = url.match(/\.(mp4|webm|ogg)$/i) || url.startsWith('data:video');
+        const isVideo = url.match(/\.(mp4|webm|ogg)$/i) || url.startsWith('data:video') || url.includes('youtube.com');
         let safeDesc = window.esc(desc||'').replace(/'/g,"\\'").replace(/"/g,"&quot;");
         if(isVideo) {
             return `<div style="text-align:center; flex:1; min-width:200px; max-width:100%;"><video src="${window.esc(url)}" controls preload="metadata" style="max-width:100%; max-height:250px; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); background:black;"></video><p style="font-size:0.85em; color:#64748b; margin-top:8px; font-weight:bold;">🎬 ${window.esc(desc||'')}</p></div>`;
@@ -68,19 +61,73 @@ window.generateImageHtml = function(q) {
     return mediaHtml;
 };
 
-// 3. 편집기 이름 수정 (도식 및 핵심 공식 또는 원리)
+// 🚨 3. 편집기 이름 수정 및 [핵심 리마인드] 입력칸 추가
 const origShowFullEditView = window.showFullEditView;
 window.showFullEditView = function(qId=null) {
     origShowFullEditView(qId);
     setTimeout(() => {
         const txt = document.getElementById('add-edit-view').innerHTML;
         document.getElementById('add-edit-view').innerHTML = txt.replace('📐 도식 및 핵심 공식</label>', '📐 도식 및 핵심 공식 또는 원리</label>');
+        
+        const qTypeEl = document.getElementById('q-type');
+        if(qTypeEl && !document.getElementById('q-remind')) {
+            const q = qId ? window.allQuestionsForSubject.find(i=>i.id===qId) : {};
+            const remindHtml = `<div class="form-group" style="background:#fef3c7; padding:15px; border-radius:8px; border:1px solid #fde68a; margin-bottom:15px;"><label style="font-weight:bold; color:#b45309;">💡 핵심 리마인드 (노트)</label><textarea id="q-remind" style="width:100%; height:80px; padding:12px; border-radius:8px; border:1px solid #fcd34d; box-sizing:border-box;" placeholder="이 문제의 핵심 리마인드를 입력하세요.">${window.esc(q.coreRemind||'')}</textarea></div>`;
+            qTypeEl.parentElement.insertAdjacentHTML('beforebegin', remindHtml);
+        }
     }, 50);
 };
 
-// =========================================================
-// NEW: 시각적 구조화 (Visual Maps) Manager
-// =========================================================
+// 🚨 4. 추가된 핵심 리마인드를 데이터베이스에 저장하도록 엔진 업데이트
+window.saveFullUpdate = async function(qId) { 
+    const opts=[], optImgs=[], images=[]; 
+    for(let i=0; i<5; i++) { 
+        const v = document.getElementById(`q-opt-${i}`)?.value.trim()||'';
+        const vi = document.getElementById(`q-opt-img-${i}`)?.value.trim()||'';
+        if(v || vi) { opts.push(v); optImgs.push(vi); } 
+    } 
+    document.querySelectorAll('.q-img-slot').forEach(slot => {
+        const u = slot.querySelector('.q-img-url').value.trim();
+        const d = slot.querySelector('.q-img-desc').value.trim();
+        if(u || d) images.push({url: u, desc: d});
+    });
+    
+    const paths = Array.from(document.querySelectorAll('.path-input')).map(i => i.value.trim()).filter(Boolean);
+    const data = { 
+        category: document.getElementById('q-category').value.trim()||'미분류', 
+        negativeType: document.getElementById('q-type').value, 
+        text: document.getElementById('q-text').value, 
+        coreRemind: document.getElementById('q-remind') ? document.getElementById('q-remind').value : '', // 🚨 핵심 리마인드 저장!
+        options: opts, 
+        optionImages: optImgs,
+        images: images,
+        answer: document.getElementById('q-answer').value, 
+        diagramFormula: document.getElementById('q-diagram').value, 
+        shortExplanation: document.getElementById('q-short').value, 
+        explanation: document.getElementById('q-explanation').value, 
+        knowledgeNetwork: document.getElementById('q-kn').value, 
+        pathLevels: paths, 
+        keywords: document.getElementById('q-kw').value.split(',').map(s=>s.trim()).filter(Boolean), 
+        tags: document.getElementById('q-tags').value.split(',').map(s=>s.trim()).filter(Boolean), 
+        mnemonic: document.getElementById('q-mne').value, 
+        mnemonicDesc: document.getElementById('q-mneD').value, 
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+    }; 
+    
+    if(!qId) data.bookmarked = false;
+    window.showLoading();
+    try { 
+        if(qId) await db.collection('subjects').doc(window.currentSubjectId).collection('questions').doc(qId).update(data); 
+        else { 
+            data.qid = window.allQuestionsForSubject.length+1; 
+            data.createdAt = firebase.firestore.FieldValue.serverTimestamp(); 
+            await db.collection('subjects').doc(window.currentSubjectId).collection('questions').add(data); 
+        } 
+        await window.manageSubject(window.currentSubjectId); 
+    } catch(e) { window.hideLoading(); alert("저장 실패"); } 
+};
+
+// 5. 시각적 구조화 & 사례 분석 관리 로직 복원 (변경 없음)
 window.currentVisualMaps = [];
 window.openVisualMapManager = async function() { window.showView('visual-map-view'); window.showLoading(); const snap=await window.fetchWithCache(db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').orderBy('createdAt','desc')); window.currentVisualMaps=snap.docs.map(d=>({id:d.id,...d.data()})); window.filteredVisualMaps=[...window.currentVisualMaps]; window.hideLoading(); window.renderVisualMapUI(); };
 window.renderVisualMapUI = function() { 
@@ -94,7 +141,6 @@ window.renderVisualMapList = () => {
     const wrap = document.getElementById('vmap-list-wrapper'); if(!wrap) return; 
     if(window.filteredVisualMaps.length===0) return wrap.innerHTML=`<div style="padding:50px; text-align:center; color:#94a3b8; background:white; border-radius:15px; border:1px solid #e0f2fe;">데이터가 없습니다.</div>`; 
     const grouped = window.filteredVisualMaps.reduce((acc, n) => { const cat = n.category || "미분류"; if(!acc[cat]) acc[cat] = []; acc[cat].push(n); return acc; }, {});
-    const orderDoc = db.collection('settings').doc(`order_visualMaps_${window.currentSubjectId}`);
     let allCats = Array.from(new Set([...(window.lastRenderedCategories['visualMaps']||[]), ...Object.keys(grouped)])).sort();
     allCats.forEach(c => { if(!grouped[c]) grouped[c] = []; }); window.lastRenderedCategories['visualMaps'] = allCats;
     let html = '';
@@ -126,9 +172,6 @@ window.showVisualMapEditor = function(id=null) {
 };
 window.saveVisualMap = async function(id) { const cat=document.getElementById('v-cat').value.trim()||'미분류'; const t=document.getElementById('v-t').value.trim(); const c=document.getElementById('v-c').value; if(!t)return alert("제목 입력"); window.showLoading(); if(id) await db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').doc(id).update({category:cat, title:t,content:c, updatedAt: firebase.firestore.FieldValue.serverTimestamp()}); else await db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').add({category:cat, title:t,content:c, createdAt: firebase.firestore.FieldValue.serverTimestamp()}); window.openVisualMapManager(); };
 
-// =========================================================
-// NEW: 사례 분석 & 비사례 (Case Studies) Manager
-// =========================================================
 window.currentCaseStudies = []; window.selectedCaseId = null;
 window.openCaseStudyManager = async function() { window.showView('case-study-view'); window.showLoading(); const snap=await window.fetchWithCache(db.collection('subjects').doc(window.currentSubjectId).collection('caseStudies')); window.currentCaseStudies=snap.docs.map(d=>({id: d.id, ...d.data()})); window.filteredCaseStudies = [...window.currentCaseStudies]; if(window.filteredCaseStudies.length>0 && !window.selectedCaseId) window.selectedCaseId=window.filteredCaseStudies[0].id; window.hideLoading(); window.renderCaseStudyUI(); };
 window.renderCaseStudyUI = function() { 
