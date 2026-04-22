@@ -1,6 +1,6 @@
 // =========================================================
-// [v11.5.0] app-parser.js: Unbreakable 7-Step Protocol Parser
-// (Tab-separated Table Auto-Split, Missing Item Handling)
+// [v12.0.0] app-parser.js: Unstoppable Semantic Parser
+// (Numbering Agnostic, Keyword-based Semantic Extraction)
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -9,9 +9,10 @@ window.showBulkAddModal = function() {
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
             <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 7단계 프로토콜 스마트 주입</h2>
-            <p style="color:#64748b; margin-bottom:20px;">AI나 노션에서 작성한 <b>[1] 핵심리마인드 ~ [7] 학습 데이터 프로토콜</b> 데이터를 그대로 붙여넣으세요.<br>표(사례 분석, 비교표)도 복사+붙여넣기 하시면 탭(Tab)을 인식해 자동으로 표 형태로 쪼개집니다! (없음/공백은 자동 무시)</p>
+            <p style="color:#64748b; margin-bottom:10px;">AI나 노션에서 작성한 데이터를 복사+붙여넣기 하세요. 번호나 양식이 조금 틀려도 핵심 키워드를 감지해 자동으로 분류합니다. (빈칸은 자동 공백 처리)</p>
+            <p style="color:#ef4444; font-size:0.95em; font-weight:bold; background:#fee2e2; padding:10px; border-radius:8px;">🚨 꿀팁: 사례 분석이나 비교표 표가 제대로 안 쪼개진다면, AI에게 "표는 반드시 | 기호로 구분되는 마크다운 표 형식으로 출력해줘"라고 요청한 뒤 붙여넣으세요!</p>
         </div>
-        <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="[1] 핵심리마인드\n내용...\n\n[2] 실전대비 퀴즈 정리노트\n1. 문제 유형 : ..."></textarea>
+        <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 붙여넣으세요..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
             <button class="button primary-button" style="height:60px; font-size:1.2em; border-radius:12px; background:#4f46e5; border:none;" onclick="window.processUnifiedBulkAdd()">🚀 데이터 분석 및 7개 항목 주입 시작</button>
             <button class="button light-button" style="height:60px; font-size:1.2em; border-radius:12px; border:2px solid #cbd5e1;" onclick="window.closeModal()">취소</button>
@@ -33,24 +34,18 @@ window.processUnifiedBulkAdd = async function() {
         let qObj = null, cObj = null, nObj = null, vObj = null, sObj = null;
         let mode = '', field = '', buffer = [];
 
-        // 항목 추출 헬퍼
-        const getAfter = (str, kw) => {
+        // 콜론(:) 뒤의 내용만 영리하게 뽑아내는 함수
+        const getAfter = (str) => {
             const idx = str.indexOf(':');
-            if(idx !== -1 && str.substring(0, idx).includes(kw)) return str.substring(idx+1).trim();
-            const kwIdx = str.indexOf(kw);
-            if(kwIdx !== -1) {
-                let sub = str.substring(kwIdx + kw.length).trim();
-                if(sub.match(/^[:\-=]/)) sub = sub.substring(1).trim();
-                return sub;
-            }
+            if (idx !== -1) return str.substring(idx + 1).trim();
             return '';
         };
 
         const saveField = () => {
             if (!mode || !field) return;
             let val = buffer.join('\n').trim();
-            // 🚨 무적 패치: "없음" 등의 단어를 공백으로 안전하게 처리
-            if (val === '없음' || val === '공백' || val === '-') val = ''; 
+            // 공백 강제 처리
+            if (val === '없음' || val === '공백' || val === '-' || val === '해당 없음') val = ''; 
 
             if (mode === 'Q' && qObj) {
                 const map = { type: 'negativeType', text: 'text', ans: 'answer', short: 'shortExplanation', exp: 'explanation', mne: 'mnemonic', mneD: 'mnemonicDesc', knR: 'knowledgeNetwork', diag: 'diagramFormula' };
@@ -72,10 +67,8 @@ window.processUnifiedBulkAdd = async function() {
 
         const flush = async () => {
             saveField(); const ts = firebase.firestore.FieldValue.serverTimestamp();
-            
-            // 🚨 무적 패치: 헤더만 트리거 되면 내용이 비어있어도 무조건 객체를 강제 생성
             if (qObj) { 
-                if(!qObj.text) qObj.text = "질문 내용 없음 (스마트 주입)";
+                if(!qObj.text) qObj.text = "질문 내용이 없습니다.";
                 if(qObj.answer) qObj.answer = qObj.answer.replace(/^\d+\)\s*/, ''); 
                 qObj.updatedAt = ts; qObj.createdAt = ts; 
                 await window.db.collection('subjects').doc(window.currentSubjectId).collection('questions').add(qObj); 
@@ -107,41 +100,46 @@ window.processUnifiedBulkAdd = async function() {
             }
         };
 
+        // 🚨 줄 단위 의미론적 파싱 시작
         for (let line of lines) {
-            let clean = line.replace(/^[\s\-•]+/, '').trim();
+            // 앞에 붙은 숫자, 대괄호, 점, 띄어쓰기를 전부 박살내서 핵심 단어만 남김
+            let clean = line.replace(/^[\s\-•\d\.\[\]]+/, '').trim(); 
             if(!clean) continue;
 
-            // 🚨 대분류 트리거 (더욱 유연하게 매칭하여 괄호가 깨져도 인식)
-            if (clean.match(/\[1\]\s*핵심|핵심\s*리마인드/i)) { await flush(); mode = 'N'; nObj = { category: '미분류', title: '핵심 리마인드', content: '' }; field = 'content'; continue; }
-            else if (clean.match(/\[2\]\s*실전|실전\s*대비|퀴즈\s*정리/i)) { await flush(); mode = 'Q'; qObj = { negativeType:'', text:'', answer:'', shortExplanation:'', explanation:'', mnemonic:'', mnemonicDesc:'', knowledgeNetwork:'', diagramFormula:'', options:[], optionImages:['','','','',''], images:[], pathLevels:[], keywords:[], tags:[], bookmarked:false }; field = ''; continue; }
-            else if (clean.match(/\[3\]\s*지식|지식\s*재구성/i)) { mode = 'Q'; continue; }
-            else if (clean.match(/\[4\]\s*시각적|시각적\s*구조화/i)) { await flush(); mode = 'V'; vObj = { title: '시각적 구조화', category: '미분류', content: '' }; field = 'content'; continue; }
-            else if (clean.match(/\[5\]\s*사례|사례\s*분석/i)) { await flush(); mode = 'S'; sObj = { title: '사례 분석', category: '미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' }; continue; }
-            else if (clean.match(/\[6\]\s*다단|다단\s*비교/i)) { await flush(); mode = 'C'; cObj = { title: '다단 비교표', col1Name: '', col2Name: '', col3Name: '', col4Name: '', rows: [] }; continue; }
-            else if (clean.match(/\[7\]\s*학습|학습\s*데이터|프로토콜/i)) { await flush(); mode = 'N'; nObj = { category: '미분류', title: '학습 데이터 프로토콜', content: '' }; field = 'content'; continue; }
+            // 1. 대분류 트리거 (번호가 [1]이든 1.이든 상관없이 단어로 인식)
+            if (clean.match(/^정답\s*및\s*핵심\s*리마인드|^핵심\s*리마인드/)) { await flush(); mode='N'; nObj={category:'미분류', title:'핵심 리마인드', content:''}; field='content'; buffer=[getAfter(line)]; continue; }
+            if (clean.match(/^실전\s*대비|^퀴즈\s*정리/)) { await flush(); mode='Q'; qObj={negativeType:'', text:'', answer:'', shortExplanation:'', explanation:'', mnemonic:'', mnemonicDesc:'', knowledgeNetwork:'', diagramFormula:'', options:[], optionImages:['','','','',''], images:[], pathLevels:[], keywords:[], tags:[], bookmarked:false}; field=''; continue; }
+            if (clean.match(/^지식\s*재구성/)) { mode='Q'; continue; } // Q 모드 그대로 유지
+            if (clean.match(/^시각적\s*구조화/)) { await flush(); mode='V'; vObj={category:'미분류', title:'시각적 구조화', content:''}; field='content'; continue; }
+            if (clean.match(/^사례\s*분석/)) { await flush(); mode='S'; sObj={title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:''}; continue; }
+            if (clean.match(/^다단\s*비교표/)) { await flush(); mode='C'; cObj={title:'다단 비교표', col1Name:'', col2Name:'', col3Name:'', col4Name:'', rows:[]}; continue; }
+            if (clean.match(/^학습\s*데이터\s*프로토콜/)) { await flush(); mode='N'; nObj={category:'미분류', title:'학습 데이터 프로토콜', content:''}; field='content'; continue; }
 
+            // 2. 세부 속성 트리거
             if (mode === 'Q') {
-                if (clean.match(/^1\.\s*문제\s*유형/)) { saveField(); field = 'type'; buffer = [getAfter(clean, '유형')]; }
-                else if (clean.match(/^2\.\s*질문\s*내용/)) { saveField(); field = 'text'; buffer = [getAfter(clean, '내용')]; }
-                else if (clean.match(/^3\.\s*정답/)) { saveField(); field = 'ans'; buffer = [getAfter(clean, '정답')]; }
-                else if (clean.match(/^4\.\s*선택지/)) { saveField(); field = 'options'; buffer = [getAfter(clean, '선택지')]; }
-                else if (clean.match(/^5\.\s*(1줄|해설\s*요약)/)) { saveField(); field = 'short'; buffer = [getAfter(clean, '해설')||getAfter(clean, '요약')]; }
-                else if (clean.match(/^6\.\s*상세\s*해설/)) { saveField(); field = 'exp'; buffer = [getAfter(clean, '해설')]; }
-                else if (clean.match(/^7\.\s*목차\s*정보/)) { saveField(); field = 'path'; buffer = [getAfter(clean, '정보')||getAfter(clean, '목차')]; }
-                else if (clean.match(/^암기\s*코드/)) { saveField(); field = 'mne'; buffer = [getAfter(clean, '코드')]; }
-                else if (clean.match(/^해석\s*및\s*풀이/)) { saveField(); field = 'mneD'; buffer = [getAfter(clean, '풀이')]; }
-                else if (clean.match(/^지식\s*연결망/)) { saveField(); field = 'knR'; buffer = [getAfter(clean, '연결망')]; }
-                else if (clean.match(/^도식\s*및\s*핵심\s*공식|^도식\s*및\s*핵심\s*원리/)) { saveField(); field = 'diag'; buffer = [getAfter(clean, '원리') || getAfter(clean, '공식')]; }
-                else { buffer.push(clean); }
+                if (clean.match(/^문제\s*유형/)) { saveField(); field='type'; buffer=[getAfter(line)]; }
+                else if (clean.match(/^질문\s*내용/)) { saveField(); field='text'; buffer=[getAfter(line)]; }
+                else if (clean.match(/^정답/) && !clean.match(/리마인드/)) { saveField(); field='ans'; buffer=[getAfter(line)]; }
+                else if (clean.match(/^선택지/)) { saveField(); field='options'; buffer=[getAfter(line)]; }
+                else if (clean.match(/^1줄\s*해설|^해설\s*요약/)) { saveField(); field='short'; buffer=[getAfter(line)]; }
+                else if (clean.match(/^상세\s*해설/)) { saveField(); field='exp'; buffer=[getAfter(line)]; }
+                else if (clean.match(/^목차\s*정보/)) { saveField(); field='path'; buffer=[getAfter(line)]; }
+                else if (clean.match(/^암기\s*코드/)) { saveField(); field='mne'; buffer=[getAfter(line)]; }
+                else if (clean.match(/^해석\s*및\s*풀이/)) { saveField(); field='mneD'; buffer=[getAfter(line)]; }
+                else if (clean.match(/^지식\s*연결망/)) { saveField(); field='knR'; buffer=[getAfter(line)]; }
+                else if (clean.match(/^도식/)) { saveField(); field='diag'; buffer=[getAfter(line)]; }
+                else { buffer.push(line.trim()); } // 원본 문장을 유지하며 버퍼에 넣음
             }
-            else if (mode === 'V' || mode === 'N') {
-                buffer.push(clean);
+            else if (mode === 'N' || mode === 'V') {
+                buffer.push(line.trim());
             }
+            // 3. 사례 분석 표 쪼개기 (마크다운 파이프 | 와 탭 완벽 지원)
             else if (mode === 'S' && sObj) {
-                if (clean.match(/구분|사례|---|비사례/)) continue;
-                let p = clean.split(/\t|\|/).map(s=>s.trim()).filter(s=>s);
+                if (clean.match(/^구분|사례|---|비사례/)) continue;
+                let p = line.split(/\t|\|/).map(s=>s.trim()).filter(s=>s);
                 if (p.length >= 2) {
-                    let key = p[0]; let cText = p[1]; let nText = p[2] || '';
+                    let key = p[0].replace(/^[:\-•\d\.\[\]\s]+/, '');
+                    let cText = p[1]; let nText = p[2] || '';
                     if (cText === '없음' || cText === '공백' || cText === '-') cText = '';
                     if (nText === '없음' || nText === '공백' || nText === '-') nText = '';
                     
@@ -150,21 +148,23 @@ window.processUnifiedBulkAdd = async function() {
                     else if (key.match(/상태|처치/)) { sObj.sta_c = cText; sObj.sta_n = nText; }
                     else if (key.match(/포인트/)) { sObj.pnt_c = cText; sObj.pnt_n = nText; }
                 } else {
-                    if (clean.match(/상황/)) { sObj.sit_c += getAfter(clean, '상황'); }
-                    else if (clean.match(/원리/)) { sObj.pri_c += getAfter(clean, '원리'); }
-                    else if (clean.match(/상태|처치/)) { sObj.sta_c += getAfter(clean, '상태') || getAfter(clean, '처치'); }
-                    else if (clean.match(/포인트/)) { sObj.pnt_c += getAfter(clean, '포인트'); }
+                    // 표가 다 깨져서 텍스트로 합쳐졌을 때의 긴급 복구 로직
+                    if (clean.match(/^상황/)) sObj.sit_c += clean.replace(/^상황[:\s]*/, '');
+                    else if (clean.match(/^작용\s*원리|^원리|^진단/)) sObj.pri_c += clean.replace(/^(작용\s*원리|원리|진단)[:\s]*/, '');
+                    else if (clean.match(/^생리적\s*상태|^상태|^처치/)) sObj.sta_c += clean.replace(/^(생리적\s*상태|상태|처치)[:\s]*/, '');
+                    else if (clean.match(/^학습\s*포인트|^포인트/)) sObj.pnt_c += clean.replace(/^(학습\s*포인트|포인트)[:\s]*/, '');
                 }
             }
+            // 4. 다단 비교표 쪼개기
             else if (mode === 'C' && cObj) {
-                if (clean.match(/---|===/)) continue;
-                let cols = clean.split(/\t|\|/).map(s=>s.trim()).filter(s=>s);
+                if (clean.match(/^---|===/)) continue;
+                let cols = line.split(/\t|\|/).map(s=>s.trim()).filter(s=>s);
                 if (cols.length >= 2) { 
-                    if (!cObj.col1Name && !cols[0].match(/항목/)) { 
+                    if (!cObj.col1Name && !clean.match(/항목/)) { 
                         for(let i=0; i<cols.length && i<4; i++) cObj[`col${i+1}Name`] = cols[i]; 
                     } 
-                    else if (cObj.col1Name || cols[0].match(/항목/)) {
-                        if(cols[0].match(/항목/)) { 
+                    else if (cObj.col1Name || clean.match(/항목/)) {
+                        if(clean.match(/항목/)) { 
                             for(let i=0; i<cols.length && i<4; i++) cObj[`col${i+1}Name`] = cols[i].replace(/비교\s*항목/g, '').trim() || `항목${i+1}`; 
                         } 
                         else { 
@@ -182,12 +182,12 @@ window.processUnifiedBulkAdd = async function() {
         window.closeModal(); 
         if (window.currentSubjectId && typeof window.manageSubject === 'function') window.manageSubject(window.currentSubjectId);
         
-        // 🚨 성공 팝업창 띄우기
-        alert(`✨ 스마트 주입 완료!\n✅ 문제: ${counts.q}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 노트: ${counts.n}건`);
+        // 🚨 추출 성공 개수 팝업 띄우기
+        alert(`✨ 스마트 주입 완료!\n✅ 퀴즈(문제): ${counts.q}건\n✅ 노트(리마인드/프로토콜): ${counts.n}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건`);
 
     } catch (err) {
         window.hideLoading();
         console.error("스마트 파서 에러:", err);
-        alert("🚨 파싱 중 오류가 발생했습니다. 개발자 도구를 확인하세요.\n에러 내용: " + err.message);
+        alert("🚨 텍스트를 파싱하는 도중 오류가 발생했습니다.\n형식이 너무 많이 깨졌을 수 있습니다.");
     }
 };
