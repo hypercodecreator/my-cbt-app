@@ -1,6 +1,6 @@
 // =========================================================
-// [v21.0.0] app-parser.js: The "First Principles" Parser
-// (Structural extraction over keyword guessing)
+// [v22.0.0] app-parser.js: Grice's Maxims & First Principles Engine
+// (Orderly sequential extraction, Flat-array Table Chunking)
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -8,12 +8,13 @@ window.showBulkAddModal = function() {
     m.innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"></div>
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 제1원칙 스마트 주입기</h2>
-            <p style="color:#64748b; margin-bottom:10px;">어떤 형태, 어떤 단어로 들어와도 <b>본질적인 구조</b>를 파악해 100% 분리합니다.</p>
+            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (그라이스 격률 적용)</h2>
+            <p style="color:#64748b; margin-bottom:10px;">줄바꿈이 다 날아가고 글자가 떡져 있어도, <b>본질적인 순서와 구조</b>를 파악해 완벽하게 도려냅니다.</p>
+            <p style="color:#ef4444; font-size:0.95em; font-weight:bold; background:#fee2e2; padding:10px; border-radius:8px;">🚨 붙여넣기 팁: AI에게 "사례분석과 비교표는 반드시 | 기호로 구분되는 마크다운 표로 출력해줘"라고 하시면 100% 성공합니다!</p>
         </div>
-        <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="복사한 내용을 통째로 붙여넣으세요..."></textarea>
+        <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 통째로 붙여넣으세요..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
-            <button class="button primary-button" style="height:60px; font-size:1.2em; border-radius:12px; background:#4f46e5; border:none;" onclick="window.processUnifiedBulkAdd()">🚀 본질 구조 분석 및 추출 시작</button>
+            <button class="button primary-button" style="height:60px; font-size:1.2em; border-radius:12px; background:#4f46e5; border:none;" onclick="window.processUnifiedBulkAdd()">🚀 본질 구조 추출 시작</button>
             <button class="button light-button" style="height:60px; font-size:1.2em; border-radius:12px; border:2px solid #cbd5e1;" onclick="window.closeModal()">취소</button>
         </div>
     </div>`;
@@ -22,171 +23,82 @@ window.showBulkAddModal = function() {
 
 window.processUnifiedBulkAdd = async function() {
     const inputArea = document.getElementById('bulk-input'); if (!inputArea) return;
-    let rawText = inputArea.value; if (!rawText.trim()) return alert("주입할 텍스트가 없습니다.");
+    let text = inputArea.value.replace(/[\u00A0\u200B-\u200D\uFEFF]/g, ' ').replace(/\*\*/g, '');
+    if (!text.trim()) return alert("주입할 텍스트가 없습니다.");
     window.showLoading();
 
     try {
-        let text = rawText.replace(/[\u00A0\u200B-\u200D\uFEFF]/g, ' ').replace(/\*\*/g, '');
+        // 🚨 1. 태도의 격률 (순서대로 도려내기 로직)
+        const extractSection = (str, startRegex, endRegex) => {
+            let startMatch = str.match(startRegex);
+            if (!startMatch) return '';
+            let startIndex = startMatch.index + startMatch[0].length;
+            let sub = str.substring(startIndex);
+            if (!endRegex) return sub.trim();
+            let endMatch = sub.match(endRegex);
+            if (endMatch) return sub.substring(0, endMatch.index).trim();
+            return sub.trim();
+        };
 
-        // 🚨 제1원칙 1: 거대 7구역 본질 분해 (번호 무시, 줄바꿈 유지)
-        text = text.replace(/([\[(]?1[\])]?\.?\s*(정답\s*및\s*)?핵심\s*리마인드)/i, '§§SEC1§§');
-        text = text.replace(/([\[(]?2[\])]?\.?\s*실전\s*대비(?:\s*퀴즈\s*정리노트)?)/i, '§§SEC2§§');
-        text = text.replace(/([\[(]?3[\])]?\.?\s*지식\s*재구성)/i, '§§SEC3§§');
-        text = text.replace(/([\[(]?4[\])]?\.?\s*시각적\s*구조화)/i, '§§SEC4§§');
-        text = text.replace(/([\[(]?5[\])]?\.?\s*사례\s*분석(?:\s*&\s*비-?사례)?)/i, '§§SEC5§§');
-        text = text.replace(/([\[(]?6[\])]?\.?\s*다단\s*비교표)/i, '§§SEC6§§');
-        text = text.replace(/([\[(]?7[\])]?\.?\s*학습\s*데이터\s*프로토콜)/i, '§§SEC7§§');
-
-        let parts = text.split('§§SEC');
-        let sections = { s1:'', s2:'', s3:'', s4:'', s5:'', s6:'', s7:'' };
-
-        parts.forEach(p => {
-            if(p.startsWith('1§§')) sections.s1 = p.substring(3).trim();
-            else if(p.startsWith('2§§')) sections.s2 = p.substring(3).trim();
-            else if(p.startsWith('3§§')) sections.s3 = p.substring(3).trim();
-            else if(p.startsWith('4§§')) sections.s4 = p.substring(3).trim();
-            else if(p.startsWith('5§§')) sections.s5 = p.substring(3).trim();
-            else if(p.startsWith('6§§')) sections.s6 = p.substring(3).trim();
-            else if(p.startsWith('7§§')) sections.s7 = p.substring(3).trim();
-        });
+        // 거대 7구역 순차 도려내기 (글자가 아무리 떡져있어도 키워드 사이만 정확히 파냄)
+        let s1 = extractSection(text, /1\.?\s*(?:정답\s*및\s*)?핵심\s*리마인드/i, /2\.?\s*실전\s*대비/i);
+        let s23 = extractSection(text, /2\.?\s*실전\s*대비(?:.*?정리노트)?/i, /4\.?\s*시각적\s*구조화/i);
+        let s4 = extractSection(text, /4\.?\s*시각적\s*구조화/i, /5\.?\s*사례\s*분석/i);
+        let s5 = extractSection(text, /5\.?\s*사례\s*분석(?:.*?비-?사례)?/i, /6\.?\s*다단\s*비교표/i);
+        let s6 = extractSection(text, /6\.?\s*다단\s*비교표/i, /7\.?\s*학습\s*데이터/i);
+        let s7 = extractSection(text, /7\.?\s*학습\s*데이터\s*프로토콜(?:.*?2\.4)?/i, null);
 
         const ts = firebase.firestore.FieldValue.serverTimestamp();
         let counts = {q:0, c:0, n:0, v:0, s:0};
 
-        // 🚨 제1원칙 2: 텍스트 가독성의 본질 (줄바꿈 원형 보존)
-        if (sections.s7) {
-            await db.collection('subjects').doc(window.currentSubjectId).collection('notes').add({
-                category: '미분류', title: '학습 데이터 프로토콜', content: sections.s7, createdAt: ts, updatedAt: ts
-            });
-            counts.n++;
-        }
+        // 🚨 [1] 핵심 리마인드 정리 (군더더기 텍스트 제거)
+        let coreRemind = s1.replace(/\[.*?\]/g, '').replace(/정답은.*?(입니다|다\.)/i, '').replace(/핵심\s*리마인드[:\s]*/i, '').trim();
 
-        if (sections.s4) {
-            await db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').add({
-                category: '미분류', title: '시각적 구조화', content: sections.s4, createdAt: ts, updatedAt: ts
-            });
-            counts.v++;
-        }
+        // 🚨 [2~3] 퀴즈 추출 (내부 속성 순차 도려내기)
+        if (s23 || coreRemind) {
+            let qObj = { category:'미분류', negativeType:'1', text:'', answer:'', shortExplanation:'', explanation:'', mnemonic:'', mnemonicDesc:'', knowledgeNetwork:'', diagramFormula:'', options:[], optionImages:['','','','',''], images:[], pathLevels:[], keywords:[], tags:[], bookmarked:false, coreRemind: coreRemind };
+            
+            const qKeys = {
+                type: /문제\s*유형[:\s]*/i, text: /질문\s*내용[:\s]*/i, ans: /정답(?!\s*및)[:\s]*/i, opts: /선택지[:\s]*/i,
+                short: /(?:1줄\s*해설|해설\s*요약)[:\s]*/i, exp: /상세\s*해설[:\s]*/i, path: /목차\s*정보[:\s]*/i,
+                mne: /암기\s*코드[:\s]*/i, mneD: /해석\s*및\s*풀이[:\s]*/i, knR: /지식\s*연결망[:\s]*/i,
+                diag: /도식\s*및\s*핵심\s*(?:공식|원리)[:\s]*/i, kw: /키워드[:\s]*/i, tg: /태그[:\s]*/i
+            };
 
-        // 🚨 제1원칙 3: 표의 본질 (단어를 안 보고, | 기호의 위치 배열로만 데이터를 넣는다)
-        if (sections.s5) {
-            let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
-            let tableLines = sections.s5.split('\n').filter(l => l.includes('|'));
-            let dataRows = [];
-
-            tableLines.forEach(l => {
-                if (l.replace(/\s+/g,'').includes('---|')) return; // 마크다운 구분선 무시
-                let cols = l.split('|').map(s=>s.trim());
-                if(cols[0] === '') cols.shift();
-                if(cols[cols.length-1] === '') cols.pop();
-                dataRows.push(cols);
-            });
-
-            // 1행(0번)은 헤더. 그 다음 4줄이 무조건 데이터! 제목이 달라도 상관없음.
-            if(dataRows.length > 1) {
-                if(dataRows[1]) { sObj.sit_c = dataRows[1][1]||''; sObj.sit_n = dataRows[1][2]||''; }
-                if(dataRows[2]) { sObj.pri_c = dataRows[2][1]||''; sObj.pri_n = dataRows[2][2]||''; }
-                if(dataRows[3]) { sObj.sta_c = dataRows[3][1]||''; sObj.sta_n = dataRows[3][2]||''; }
-                if(dataRows[4]) { sObj.pnt_c = dataRows[4][1]||''; sObj.pnt_n = dataRows[4][2]||''; }
-            } else if (sections.s5.trim() !== '') {
-                sObj.sit_c = sections.s5; // 깨진 경우 통째로 보존
+            let qData = {};
+            for (let k of Object.keys(qKeys)) {
+                let startMatch = s23.match(qKeys[k]);
+                if (!startMatch) { qData[k] = ''; continue; }
+                let startIndex = startMatch.index + startMatch[0].length;
+                let subText = s23.substring(startIndex);
+                
+                let closest = subText.length;
+                for (let otherK of Object.keys(qKeys)) {
+                    if (k === otherK) continue;
+                    let m = subText.match(qKeys[otherK]);
+                    if (m && m.index < closest) closest = m.index;
+                }
+                qData[k] = subText.substring(0, closest).trim();
             }
 
-            if (sObj.sit_c || sObj.pri_c) {
-                sObj.createdAt = ts; sObj.updatedAt = ts;
-                await db.collection('subjects').doc(window.currentSubjectId).collection('caseStudies').add(sObj);
-                counts.s++;
+            // 매핑
+            if(qData.type) { let t = qData.type.replace(/\s+/g,''); qObj.negativeType = t.includes('빈칸')?'2':t.includes('주관')?'3':t.includes('심화')?'4':'1'; }
+            if(qData.text) qObj.text = qData.text;
+            if(qData.ans) qObj.answer = qData.ans.replace(/^\d+\)\s*/, '');
+            if(qData.opts) {
+                let optsArr = qData.opts.split(/(?:\([1-5]\)|[①-⑤]|\d\)\s+|\d\.\s+|^O\s+\(맞다\)|^X\s+\(틀리다\))/gm).map(s=>s.trim()).filter(Boolean);
+                if(optsArr.length <= 1) optsArr = qData.opts.split('\n').map(s=>s.trim()).filter(Boolean);
+                qObj.options = optsArr;
             }
-        }
-
-        // 🚨 다단 비교표의 본질: 첫 줄은 제목, 둘째 줄은 선, 나머지는 데이터
-        if (sections.s6) {
-            let cObj = { title:'다단 비교표', category:'미분류', col1Name:'', col2Name:'', col3Name:'', col4Name:'', rows:[] };
-            let tableLines = sections.s6.split('\n').filter(l => l.includes('|'));
-            let dataRows = [];
-
-            tableLines.forEach(l => {
-                if (l.replace(/\s+/g,'').includes('---|')) return;
-                let cols = l.split('|').map(s=>s.trim());
-                if(cols[0] === '') cols.shift();
-                if(cols[cols.length-1] === '') cols.pop();
-                dataRows.push(cols);
-            });
-
-            if (dataRows.length > 0) {
-                let headers = dataRows[0];
-                cObj.col1Name = headers[0] || '항목1';
-                cObj.col2Name = headers[1] || '항목2';
-                cObj.col3Name = headers[2] || '';
-                cObj.col4Name = headers[3] || '';
-
-                for (let i = 1; i < dataRows.length; i++) {
-                    let dr = dataRows[i];
-                    cObj.rows.push({
-                        col1: dr[0] || '-',
-                        col2: dr[1] || '-',
-                        col3: dr[2] || '',
-                        col4: dr[3] || ''
-                    });
-                }
-                cObj.createdAt = ts; cObj.updatedAt = ts;
-                await db.collection('subjects').doc(window.currentSubjectId).collection('comparisons').add(cObj);
-                counts.c++;
-            }
-        }
-
-        // 🚨 제1원칙 4: 퀴즈 세부 분해 (구분자 강제 삽입 후 쪼개기)
-        let quizText = (sections.s2 + '\n' + sections.s3).trim();
-        if (quizText || sections.s1) {
-            let qObj = { category:'미분류', negativeType:'1', text:'', answer:'', shortExplanation:'', explanation:'', mnemonic:'', mnemonicDesc:'', knowledgeNetwork:'', diagramFormula:'', options:[], optionImages:['','','','',''], images:[], pathLevels:[], keywords:[], tags:[], bookmarked:false, coreRemind: sections.s1 || '' };
-
-            let qText = quizText;
-            qText = qText.replace(/([\[(]?1[\])]?\.?\s*문제\s*유형)/i, '§§F1§§');
-            qText = qText.replace(/([\[(]?2[\])]?\.?\s*질문\s*내용)/i, '§§F2§§');
-            qText = qText.replace(/([\[(]?3[\])]?\.?\s*정답)/i, '§§F3§§');
-            qText = qText.replace(/([\[(]?4[\])]?\.?\s*선택지)/i, '§§F4§§');
-            qText = qText.replace(/([\[(]?5[\])]?\.?\s*(?:1줄\s*해설|해설\s*요약))/i, '§§F5§§');
-            qText = qText.replace(/([\[(]?6[\])]?\.?\s*상세\s*해설)/i, '§§F6§§');
-            qText = qText.replace(/([\[(]?7[\])]?\.?\s*목차\s*정보)/i, '§§F7§§');
-            qText = qText.replace(/(암기\s*코드)/i, '§§F8§§');
-            qText = qText.replace(/(해석\s*및\s*풀이)/i, '§§F9§§');
-            qText = qText.replace(/(지식\s*연결망)/i, '§§F10§§');
-            qText = qText.replace(/(도식\s*및\s*핵심\s*(?:공식|원리))/i, '§§F11§§');
-            qText = qText.replace(/(키워드)/i, '§§F12§§');
-            qText = qText.replace(/(태그)/i, '§§F13§§');
-
-            let fParts = qText.split('§§F');
-            fParts.forEach(p => {
-                let content = p.replace(/^[\s:\-]+/, '').trim(); 
-                if (content === '없음' || content === '-' || content === '공백') content = '';
-
-                if(p.startsWith('1§§')) {
-                    // 문제 유형의 본질: select option value 맞추기!
-                    let t = content.replace(/\s+/g,'');
-                    if(t.includes('빈칸')) qObj.negativeType = '2';
-                    else if(t.includes('주관')) qObj.negativeType = '3';
-                    else if(t.includes('심화')) qObj.negativeType = '4';
-                    else qObj.negativeType = '1'; // 진위형(O/X) 등 알 수 없는 값은 1번으로 통일
-                }
-                else if(p.startsWith('2§§')) qObj.text = content;
-                else if(p.startsWith('3§§')) qObj.answer = content.replace(/^\d+\)\s*/, '');
-                else if(p.startsWith('4§§')) {
-                    if(content) {
-                        let opts = content.split(/(?:\([1-5]\)|[①-⑤]|\d\)\s+|\d\.\s+|^O\s+\(맞다\)|^X\s+\(틀리다\))/gm).map(s=>s.trim()).filter(Boolean);
-                        if(opts.length <= 1) opts = content.split('\n').map(s=>s.trim()).filter(Boolean);
-                        qObj.options = opts;
-                    }
-                }
-                else if(p.startsWith('5§§')) qObj.shortExplanation = content;
-                else if(p.startsWith('6§§')) qObj.explanation = content;
-                else if(p.startsWith('7§§')) qObj.pathLevels = content ? content.split(/\n|,|단계:/).map(s=>s.trim().replace(/^\d+\s*/,'')).filter(Boolean) : [];
-                else if(p.startsWith('8§§')) qObj.mnemonic = content;
-                else if(p.startsWith('9§§')) qObj.mnemonicDesc = content;
-                else if(p.startsWith('10§§')) qObj.knowledgeNetwork = content;
-                else if(p.startsWith('11§§')) qObj.diagramFormula = content;
-                else if(p.startsWith('12§§')) qObj.keywords = content ? content.replace(/#/g,'').split(/[,|/]+|\s+/).map(s=>s.trim()).filter(Boolean) : [];
-                else if(p.startsWith('13§§')) qObj.tags = content ? content.replace(/#/g,'').split(/[,|/]+|\s+/).map(s=>s.trim()).filter(Boolean) : [];
-            });
+            if(qData.short) qObj.shortExplanation = qData.short;
+            if(qData.exp) qObj.explanation = qData.exp;
+            if(qData.path) qObj.pathLevels = qData.path.split(/\n|,|단계:/).map(s=>s.trim().replace(/^\d+\s*/,'')).filter(Boolean);
+            if(qData.mne) qObj.mnemonic = qData.mne;
+            if(qData.mneD) qObj.mnemonicDesc = qData.mneD;
+            if(qData.knR) qObj.knowledgeNetwork = qData.knR;
+            if(qData.diag) qObj.diagramFormula = qData.diag;
+            if(qData.kw) qObj.keywords = qData.kw.replace(/#/g,'').split(/[,|/]+|\s+/).map(s=>s.trim()).filter(Boolean);
+            if(qData.tg) qObj.tags = qData.tg.replace(/#/g,'').split(/[,|/]+|\s+/).map(s=>s.trim()).filter(Boolean);
 
             if(!qObj.text) qObj.text = "질문 내용 없음 (스마트 주입)";
             qObj.createdAt = ts; qObj.updatedAt = ts;
@@ -194,10 +106,72 @@ window.processUnifiedBulkAdd = async function() {
             counts.q++;
         }
 
+        // 🚨 [4] 시각적 구조화 가독성 복원 (마인드맵 등 리스트화)
+        if (s4) {
+            let vContent = s4.replace(/(🗺️|⭕|중심 노드|좁은 QRS|넓은 QRS|기기 특성|교집합|일반 성인|임신부 영역|규칙적|불규칙적|좁규|넓규)/g, '\n\n$1');
+            await db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').add({ category:'미분류', title:'시각적 구조화', content: vContent.trim(), createdAt:ts, updatedAt:ts });
+            counts.v++;
+        }
+
+        // 🚨 [5] 사례 분석 (표의 본질: 1차원 배열 평탄화 후 3칸씩 조립)
+        if (s5) {
+            let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
+            // 줄바꿈이 없어서 떡진 표 셀 사이에 강제로 | 주입 (가장 흔한 제목 기준)
+            let s5Clean = s5.replace(/(상황|작동|작용\s*원리|진단|에너지\s*설정|판단\s*근거|생리적\s*상태|처치|이유|학습\s*포인트)/g, '| $1');
+            let sCells = s5Clean.split(/\|/).map(s=>s.trim()).filter(Boolean);
+            
+            // 의미 없는 헤더 제거
+            sCells = sCells.filter(s => !s.includes('구분') && !s.includes('구체적 사례') && !s.includes('비-사례') && !s.match(/^[-:=]+$/));
+            
+            // 3칸 단위로 강제 조립
+            for(let i=0; i<sCells.length; i+=3) {
+                let k = sCells[i].replace(/\s+/g,'');
+                let c = sCells[i+1]||''; let n = sCells[i+2]||'';
+                if (k.includes('상황')) { sObj.sit_c = c; sObj.sit_n = n; }
+                else if (k.includes('원리')||k.includes('진단')||k.includes('설정')||k.includes('판단')||k.includes('선택')) { sObj.pri_c = c; sObj.pri_n = n; }
+                else if (k.includes('상태')||k.includes('처치')||k.includes('결과')||k.includes('이유')||k.includes('근거')) { sObj.sta_c = c; sObj.sta_n = n; }
+                else if (k.includes('포인트')) { sObj.pnt_c = c; sObj.pnt_n = n; }
+            }
+            if (sObj.sit_c || sObj.pri_c || sObj.sta_c || sObj.pnt_c) {
+                sObj.createdAt = ts; sObj.updatedAt = ts;
+                await db.collection('subjects').doc(window.currentSubjectId).collection('caseStudies').add(sObj);
+                counts.s++;
+            }
+        }
+
+        // 🚨 [6] 다단 비교표 (한글과 알파벳 사이를 파고들어 떡진 글자 강제 분해)
+        if (s6) {
+            let cObj = { title:'다단 비교표', category:'미분류', col1Name:'', col2Name:'', col3Name:'', col4Name:'', rows:[] };
+            // J(줄), s(초), 괄호 뒤에 한글이 바로 붙어있으면 찢어버림 (예: 100J심방세동 -> 100J | 심방세동)
+            let s6Clean = s6.replace(/([A-Za-z0-9\)>J초s])\s*([가-힣])/g, '$1 | $2');
+            let cCells = s6Clean.split(/\|/).map(s=>s.trim()).filter(Boolean).filter(s => !s.match(/^[-=]+$/));
+            
+            if(cCells.length >= 4) {
+                cObj.col1Name = cCells[0]; cObj.col2Name = cCells[1]; cObj.col3Name = cCells[2]; cObj.col4Name = cCells[3];
+                for(let i=4; i<cCells.length; i+=4) {
+                    cObj.rows.push({
+                        col1: cCells[i]||'-', col2: cCells[i+1]||'-', col3: cCells[i+2]||'', col4: cCells[i+3]||''
+                    });
+                }
+            }
+            if (cObj.rows.length > 0) {
+                cObj.createdAt = ts; cObj.updatedAt = ts;
+                await db.collection('subjects').doc(window.currentSubjectId).collection('comparisons').add(cObj);
+                counts.c++;
+            }
+        }
+
+        // 🚨 [7] 일반 노트 가독성 복원
+        if (s7) {
+            let nContent = s7.replace(/(\[PHASE|코드:|해설:|그림|포인트:|1층:|2층:|3층:|작은 바구니|중간 바구니|큰 바구니)/g, '\n\n$1');
+            await db.collection('subjects').doc(window.currentSubjectId).collection('notes').add({ category:'미분류', title:'학습 데이터 프로토콜', content: nContent.trim(), createdAt:ts, updatedAt:ts });
+            counts.n++;
+        }
+
         window.hideLoading(); window.closeModal(); 
         if (window.currentSubjectId && typeof window.manageSubject === 'function') window.manageSubject(window.currentSubjectId);
         
-        alert(`✨ 제1원칙 스마트 주입 완벽 성공!\n✅ 퀴즈/재구성(리마인드 포함): ${counts.q}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 일반노트: ${counts.n}건`);
+        alert(`✨ 제1원칙 퀀텀 주입 완벽 성공!\n✅ 퀴즈/재구성(리마인드): ${counts.q}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 일반노트: ${counts.n}건`);
 
     } catch(err) {
         window.hideLoading(); console.error(err); alert("🚨 파싱 오류: " + err.message);
