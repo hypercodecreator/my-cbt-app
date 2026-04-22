@@ -1,10 +1,12 @@
-// [v10.5.0] app-ui.js: New Views Added
+// =========================================================
+// [v16.5.0] app-ui.js: Added 'Core Remind' field to Editor
+// =========================================================
+
 window.showView = function(id) {
-    const views = ['subject-view', 'management-view', 'quiz-view', 'add-edit-view', 'note-view', 'flashcard-view', 'rhythm-view', 'compare-view', 'visual-map-view', 'case-study-view'];
+    const views = ['subject-view', 'management-view', 'quiz-view', 'add-edit-view', 'note-view', 'flashcard-view', 'rhythm-view', 'compare-view'];
     views.forEach(v => { const el = document.getElementById(v); if (el) el.classList.toggle('hidden', v !== id); });
     window.scrollTo(0, 0);
 };
-
 window.renderVersionHeader = function() {}; 
 
 window.renderBaseUI = function() {
@@ -14,7 +16,7 @@ window.renderBaseUI = function() {
     let vHead = document.getElementById('v-header');
     if (!vHead) { vHead = document.createElement('div'); vHead.id = 'v-header'; authCont.after(vHead); }
     vHead.style = "background:#0f172a; color:#fff; padding:12px 25px; display:flex; border-radius:12px; margin:0 15px 15px 15px;";
-    vHead.innerHTML = `<span style="background:#10b981; padding:3px 10px; border-radius:6px; font-weight:900; font-size:0.85em; margin-right:10px;">v10.5.0</span> <span style="font-size:0.9em;">[Visual Structuring & Case Study Expansion]</span>`;
+    vHead.innerHTML = `<span style="background:#10b981; padding:3px 10px; border-radius:6px; font-weight:900; font-size:0.85em; margin-right:10px;">v16.5.0</span> <span style="font-size:0.9em;">[Core Remind & Readability Update]</span>`;
 
     let masterNav = document.getElementById('master-nav');
     if (!masterNav) { masterNav = document.createElement('div'); masterNav.id = 'master-nav'; vHead.after(masterNav); }
