@@ -1154,6 +1154,7 @@ window.saveFullUpdate = async function(qId) {
         category: document.getElementById('q-category').value.trim()||'미분류', 
         negativeType: document.getElementById('q-type').value, 
         text: document.getElementById('q-text').value, 
+        coreRemind: document.getElementById('q-remind').value, // 🚨 핵심 리마인드 추가!
         options: opts, 
         optionImages: optImgs,
         images: images,
