@@ -1,6 +1,6 @@
 // =========================================================
 // [v14.0.0] app-parser.js: Unstoppable Semantic Parser
-// (Numbering Agnostic, Glued-Text Separation, Missing Item Handling)
+// (Strict Header Detection, Glued-Text Separation)
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -9,7 +9,8 @@ window.showBulkAddModal = function() {
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
             <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 7단계 프로토콜 스마트 주입</h2>
-            <p style="color:#64748b; margin-bottom:10px;">AI나 노션에서 작성한 데이터를 복사+붙여넣기 하세요. 번호나 양식이 조금 틀려도 핵심 키워드를 감지해 자동으로 분류합니다.</p>
+            <p style="color:#64748b; margin-bottom:10px;">AI나 노션에서 작성한 데이터를 복사+붙여넣기 하세요.</p>
+            <p style="color:#ef4444; font-size:0.95em; font-weight:bold; background:#fee2e2; padding:10px; border-radius:8px;">🚨 꿀팁: 사례 분석이나 비교표를 붙여넣었을 때 글자가 다닥다닥 붙어서 깨진다면, AI에게 "표는 반드시 | 기호로 구분되는 마크다운 표 형식으로 출력해줘"라고 요청한 뒤 붙여넣어 보세요!</p>
         </div>
         <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 붙여넣으세요..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
@@ -27,53 +28,16 @@ window.processUnifiedBulkAdd = async function() {
     
     try {
         input = input.replace(/[\u00A0\u200B-\u200D\uFEFF]/g, ' ').replace(/\*\*/g, '');
-        
-        // 🚨 떡진 텍스트 강제 줄바꿈 (표나 텍스트가 띄어쓰기 없이 한 줄로 뭉쳐서 들어올 때 대비)
-        input = input
-            .replace(/(\[?\d+\]?\.?\s*정답\s*및\s*핵심\s*리마인드)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*실전\s*대비)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*지식\s*재구성)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*시각적\s*구조화)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*사례\s*분석)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*다단\s*비교표)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*학습\s*데이터)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*문제\s*유형)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*질문\s*내용)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*정답)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*선택지)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*1줄\s*해설)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*해설\s*요약)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*상세\s*해설)/g, '\n$1')
-            .replace(/(\[?\d+\]?\.?\s*목차\s*정보)/g, '\n$1')
-            .replace(/(암기\s*코드:?)/g, '\n$1')
-            .replace(/(해석\s*및\s*풀이:?)/g, '\n$1')
-            .replace(/(지식\s*연결망:?)/g, '\n$1')
-            .replace(/(도식\s*및\s*핵심\s*공식,?\s*원리:?)/g, '\n$1')
-            .replace(/(키워드:?)/g, '\n$1')
-            .replace(/(태그:?)/g, '\n$1')
-            .replace(/([^\n])(상황)/g, '$1\n$2')
-            .replace(/([^\n])(작동|작용\s*원리|진단|선택\s*에너지)/g, '$1\n$2')
-            .replace(/([^\n])(결과|생리적\s*상태|상태|처치|이유)/g, '$1\n$2')
-            .replace(/([^\n])(학습\s*포인트)/g, '$1\n$2');
-
-        const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
+        const lines = input.split('\n');
         
         let counts = {q:0, c:0, n:0, v:0, s:0};
         let qObj = null, cObj = null, nObj = null, vObj = null, sObj = null;
         let mode = '', field = '', buffer = [];
 
-        const getAfter = (str, kw) => {
-            const idx = str.indexOf(':');
-            if (idx !== -1 && str.substring(0, idx).replace(/\s+/g,'').includes(kw)) return str.substring(idx + 1).trim();
-            const regex = new RegExp(`.*${kw}[\\s\\:\\-]*`, 'i');
-            return str.replace(regex, '').trim();
-        };
-
         const saveField = () => {
             if (!mode || !field) return;
             let val = buffer.join('\n').trim();
-            let checkVal = val.replace(/\s+/g, '');
-            if (['없음', '공백', '-', '해당없음'].includes(checkVal)) val = ''; 
+            if (['없음', '공백', '-', '해당없음'].includes(val.replace(/\s+/g, ''))) val = ''; 
 
             if (mode === 'Q' && qObj) {
                 const map = { type: 'negativeType', text: 'text', ans: 'answer', short: 'shortExplanation', exp: 'explanation', mne: 'mnemonic', mneD: 'mnemonicDesc', knR: 'knowledgeNetwork', diag: 'diagramFormula', kw: 'keywords', tg: 'tags' };
@@ -83,16 +47,14 @@ window.processUnifiedBulkAdd = async function() {
                     } else {
                         qObj[map[field]] = val; 
                     }
-                }
-                else if (field === 'options') {
+                } else if (field === 'options') {
                     if (!val) qObj.options = [];
                     else {
                         let opts = val.split(/(?:\([1-5]\)|[①-⑤]|\d\)\s+|\d\.\s+|^O\s+\(맞다\)|^X\s+\(틀리다\))/gm).map(s => s.trim()).filter(Boolean);
                         if (opts.length <= 1 && val.includes('\n')) opts = val.split('\n').map(s => s.trim()).filter(Boolean);
                         qObj.options = opts;
                     }
-                }
-                else if (field === 'path') { qObj.pathLevels = val ? val.split(/\n|,|단계:/).map(s => s.trim().replace(/^\d+\s*/, '')).filter(Boolean) : []; }
+                } else if (field === 'path') { qObj.pathLevels = val ? val.split(/\n|,|단계:/).map(s => s.trim().replace(/^\d+\s*/, '')).filter(Boolean) : []; }
             } 
             else if (mode === 'N' && nObj) { if(val) nObj.content += (nObj.content?'\n':'') + val; }
             else if (mode === 'V' && vObj) { if(val) vObj.content += (vObj.content?'\n':'') + val; }
@@ -134,87 +96,75 @@ window.processUnifiedBulkAdd = async function() {
             }
         };
 
-        // 🚨 줄 단위 의미론적 파싱 시작
         for (let line of lines) {
-            let cleanLine = line.trim();
-            
-            // 🚨 핵심 수정: 앞에 붙은 숫자, 대괄호, 점, 기호를 완벽하게 뜯어내고 순수 키워드만 남김
-            let rawStr = cleanLine.replace(/^[\s\-•\d\.\[\]]+/, ''); 
-            let checkStr = rawStr.replace(/\s+/g, ''); 
+            let clean = line.trim();
+            if (!clean) continue;
 
-            // 1. 대분류 트리거
-            if (checkStr.startsWith('정답및핵심') || checkStr.startsWith('핵심리마인드')) { await flush(); mode='N'; nObj={category:'미분류', title:'핵심 리마인드', content:''}; field='content'; buffer=[getAfter(rawStr, '리마인드')]; continue; }
-            else if (checkStr.startsWith('실전대비') || checkStr.startsWith('퀴즈정리')) { await flush(); mode='Q'; qObj={negativeType:'', text:'', answer:'', shortExplanation:'', explanation:'', mnemonic:'', mnemonicDesc:'', knowledgeNetwork:'', diagramFormula:'', options:[], optionImages:['','','','',''], images:[], pathLevels:[], keywords:[], tags:[], bookmarked:false}; field=''; continue; }
-            else if (checkStr.startsWith('지식재구성')) { saveField(); field=''; mode='Q'; continue; } 
-            else if (checkStr.startsWith('시각적구조화') || checkStr.startsWith('마인드맵') || checkStr.startsWith('밴다이어그램')) { await flush(); mode='V'; vObj={category:'미분류', title:'시각적 구조화', content:''}; field='content'; continue; }
-            else if (checkStr.startsWith('사례분석') || checkStr.startsWith('비-사례')) { await flush(); mode='S'; sObj={title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:''}; continue; }
-            else if (checkStr.startsWith('다단비교') || checkStr.startsWith('비교표')) { await flush(); mode='C'; cObj={title:'다단 비교표', col1Name:'', col2Name:'', col3Name:'', col4Name:'', rows:[]}; continue; }
-            else if (checkStr.startsWith('학습데이터') || checkStr.startsWith('프로토콜')) { await flush(); mode='N'; nObj={category:'미분류', title:'학습 데이터 프로토콜', content:''}; field='content'; continue; }
+            // 🚨 1. 정확한 대제목 7단계 매칭 (중간 단어 속임수 완벽 방어)
+            if (clean.match(/^[\[(]?1[\]\)]?\.?\s*정답\s*및\s*핵심\s*리마인드/)) { await flush(); mode='N'; nObj={category:'미분류', title:'핵심 리마인드', content:''}; field='content'; continue; }
+            if (clean.match(/^[\[(]?2[\]\)]?\.?\s*실전\s*대비/)) { await flush(); mode='Q'; qObj={negativeType:'', text:'', answer:'', shortExplanation:'', explanation:'', mnemonic:'', mnemonicDesc:'', knowledgeNetwork:'', diagramFormula:'', options:[], optionImages:['','','','',''], images:[], pathLevels:[], keywords:[], tags:[], bookmarked:false}; field=''; continue; }
+            if (clean.match(/^[\[(]?3[\]\)]?\.?\s*지식\s*재구성/)) { mode='Q'; continue; }
+            if (clean.match(/^[\[(]?4[\]\)]?\.?\s*시각적\s*구조화/)) { await flush(); mode='V'; vObj={category:'미분류', title:'시각적 구조화', content:''}; field='content'; continue; }
+            if (clean.match(/^[\[(]?5[\]\)]?\.?\s*사례\s*분석/)) { await flush(); mode='S'; sObj={title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:''}; continue; }
+            if (clean.match(/^[\[(]?6[\]\)]?\.?\s*다단\s*비교/)) { await flush(); mode='C'; cObj={title:'다단 비교표', col1Name:'', col2Name:'', col3Name:'', col4Name:'', rows:[]}; continue; }
+            if (clean.match(/^[\[(]?7[\]\)]?\.?\s*학습\s*데이터/)) { await flush(); mode='N'; nObj={category:'미분류', title:'학습 데이터 프로토콜', content:''}; field='content'; continue; }
 
-            // 2. 세부 속성 트리거
+            // 2. 항목별 세부 분류
             if (mode === 'Q') {
-                if (checkStr.startsWith('문제유형')) { saveField(); field='type'; buffer=[getAfter(rawStr, '유형')]; }
-                else if (checkStr.startsWith('질문내용')) { saveField(); field='text'; buffer=[getAfter(rawStr, '내용')]; }
-                else if (checkStr.startsWith('정답') && !checkStr.startsWith('정답및')) { saveField(); field='ans'; buffer=[getAfter(rawStr, '정답')]; }
-                else if (checkStr.startsWith('선택지')) { saveField(); field='options'; buffer=[getAfter(rawStr, '선택지')]; }
-                else if (checkStr.startsWith('1줄해설') || checkStr.startsWith('해설요약')) { saveField(); field='short'; buffer=[getAfter(rawStr, '해설')||getAfter(rawStr, '요약')]; }
-                else if (checkStr.startsWith('상세해설')) { saveField(); field='exp'; buffer=[getAfter(rawStr, '해설')]; }
-                else if (checkStr.startsWith('목차정보')) { saveField(); field='path'; buffer=[getAfter(rawStr, '정보')||getAfter(rawStr, '목차')]; }
-                else if (checkStr.startsWith('암기코드')) { saveField(); field='mne'; buffer=[getAfter(rawStr, '코드')]; }
-                else if (checkStr.startsWith('해석및풀이') || checkStr.startsWith('해석및')) { saveField(); field='mneD'; buffer=[getAfter(rawStr, '풀이')]; }
-                else if (checkStr.startsWith('지식연결망')) { saveField(); field='knR'; buffer=[getAfter(rawStr, '연결망')]; }
-                else if (checkStr.startsWith('도식및') || checkStr.startsWith('핵심공식') || checkStr.startsWith('핵심원리')) { saveField(); field='diag'; buffer=[getAfter(rawStr, '원리') || getAfter(rawStr, '공식')]; }
-                else if (checkStr.startsWith('키워드')) { saveField(); field='kw'; buffer=[getAfter(rawStr, '키워드')]; }
-                else if (checkStr.startsWith('태그')) { saveField(); field='tg'; buffer=[getAfter(rawStr, '태그')]; }
-                else { buffer.push(cleanLine); } 
+                if (clean.match(/^[\[(]?1[\]\)]?\.?\s*문제\s*유형/)) { saveField(); field='type'; buffer=[clean.replace(/^.*?문제\s*유형[:\s]*/, '')]; }
+                else if (clean.match(/^[\[(]?2[\]\)]?\.?\s*질문\s*내용/)) { saveField(); field='text'; buffer=[clean.replace(/^.*?질문\s*내용[:\s]*/, '')]; }
+                else if (clean.match(/^[\[(]?3[\]\)]?\.?\s*정답/)) { saveField(); field='ans'; buffer=[clean.replace(/^.*?정답[:\s]*/, '')]; }
+                else if (clean.match(/^[\[(]?4[\]\)]?\.?\s*선택지/)) { saveField(); field='options'; buffer=[clean.replace(/^.*?선택지[:\s]*/, '')]; }
+                else if (clean.match(/^[\[(]?5[\]\)]?\.?\s*(1줄\s*해설|해설\s*요약)/)) { saveField(); field='short'; buffer=[clean.replace(/^.*?(1줄\s*해설|해설\s*요약)[:\s]*/, '')]; }
+                else if (clean.match(/^[\[(]?6[\]\)]?\.?\s*상세\s*해설/)) { saveField(); field='exp'; buffer=[clean.replace(/^.*?상세\s*해설[:\s]*/, '')]; }
+                else if (clean.match(/^[\[(]?7[\]\)]?\.?\s*목차\s*정보/)) { saveField(); field='path'; buffer=[clean.replace(/^.*?목차\s*정보[:\s]*/, '')]; }
+                else if (clean.match(/^암기\s*코드/)) { saveField(); field='mne'; buffer=[clean.replace(/^.*?암기\s*코드[:\s]*/, '')]; }
+                else if (clean.match(/^해석\s*및\s*풀이/)) { saveField(); field='mneD'; buffer=[clean.replace(/^.*?해석\s*및\s*풀이[:\s]*/, '')]; }
+                else if (clean.match(/^지식\s*연결망/)) { saveField(); field='knR'; buffer=[clean.replace(/^.*?지식\s*연결망[:\s]*/, '')]; }
+                else if (clean.match(/^도식\s*및\s*핵심\s*공식|^도식\s*및\s*핵심\s*원리/)) { saveField(); field='diag'; buffer=[clean.replace(/^.*?(도식\s*및\s*핵심\s*공식|도식\s*및\s*핵심\s*원리)[:\s]*/, '')]; }
+                else if (clean.match(/^키워드/)) { saveField(); field='kw'; buffer=[clean.replace(/^.*?키워드[:\s]*/, '')]; }
+                else if (clean.match(/^태그/)) { saveField(); field='tg'; buffer=[clean.replace(/^.*?태그[:\s]*/, '')]; }
+                else { buffer.push(clean); }
             }
             else if (mode === 'N' || mode === 'V') {
-                buffer.push(cleanLine);
+                buffer.push(clean);
             }
-            // 3. 사례 분석 파싱 (표가 한 줄로 깨져 들어와도 완벽 방어)
+            // 🚨 3. 사례 분석 (떡진 표 강제 복원 로직)
             else if (mode === 'S' && sObj) {
-                if (checkStr.startsWith('구분사례') || checkStr.startsWith('구분구체적')) continue;
-                let p = cleanLine.split(/\t|\|/).map(s=>s.trim()).filter(s=>s);
-                if (p.length >= 2) {
-                    let key = p[0].replace(/^[:\-•\d\.\[\]\s]+/, '');
-                    let cText = p[1]; let nText = p[2] || '';
-                    if (['없음', '공백', '-', '해당없음'].includes(cText.replace(/\s+/g, ''))) cText = '';
-                    if (['없음', '공백', '-', '해당없음'].includes(nText.replace(/\s+/g, ''))) nText = '';
-                    
-                    let kCheck = key.replace(/\s+/g, '');
-                    if (kCheck.includes('상황')) { sObj.sit_c = cText; sObj.sit_n = nText; }
-                    else if (kCheck.includes('원리') || kCheck.includes('진단') || kCheck.includes('작동') || kCheck.includes('선택에너지')) { sObj.pri_c = cText; sObj.pri_n = nText; }
-                    else if (kCheck.includes('상태') || kCheck.includes('처치') || kCheck.includes('결과') || kCheck.includes('이유')) { sObj.sta_c = cText; sObj.sta_n = nText; }
-                    else if (kCheck.includes('포인트')) { sObj.pnt_c = cText; sObj.pnt_n = nText; }
+                if (clean.match(/구분\s*구체적\s*사례|구분\s*\|\s*구체적/)) continue;
+                let parts = clean.split(/\t|\|/).map(s=>s.trim()).filter(s=>s);
+                if (parts.length >= 2) {
+                    let k = parts[0]; let cText = parts[1]; let nText = parts[2]||'';
+                    if (k.includes('상황')) { sObj.sit_c = cText; sObj.sit_n = nText; }
+                    else if (k.includes('작용')||k.includes('원리')||k.includes('진단')||k.includes('선택')) { sObj.pri_c = cText; sObj.pri_n = nText; }
+                    else if (k.includes('상태')||k.includes('결과')||k.includes('처치')||k.includes('이유')) { sObj.sta_c = cText; sObj.sta_n = nText; }
+                    else if (k.includes('포인트')) { sObj.pnt_c = cText; sObj.pnt_n = nText; }
                 } else {
-                    if (checkStr.startsWith('상황')) sObj.sit_c += cleanLine.replace(/^.*?상황[:\s]*/, '') + '\n';
-                    else if (checkStr.startsWith('작동') || checkStr.startsWith('작용원리') || checkStr.startsWith('원리') || checkStr.startsWith('진단') || checkStr.startsWith('선택에너지')) sObj.pri_c += cleanLine.replace(/^.*?(작동|작용\s*원리|원리|진단|선택\s*에너지)[:\s]*/, '') + '\n';
-                    else if (checkStr.startsWith('결과') || checkStr.startsWith('생리적상태') || checkStr.startsWith('상태') || checkStr.startsWith('처치') || checkStr.startsWith('이유')) sObj.sta_c += cleanLine.replace(/^.*?(결과|생리적\s*상태|상태|처치|이유)[:\s]*/, '') + '\n';
-                    else if (checkStr.startsWith('학습포인트') || checkStr.startsWith('포인트')) sObj.pnt_c += cleanLine.replace(/^.*?(학습\s*포인트|포인트)[:\s]*/, '') + '\n';
-                    else sObj.sit_c += cleanLine + '\n'; 
+                    // 표가 떡진 경우 긴급 복구
+                    if (clean.startsWith('상황')) sObj.sit_c += clean.replace(/^상황/, '') + '\n';
+                    else if (clean.match(/^(작용\s*원리|선택\s*에너지|원리|진단|판단)/)) sObj.pri_c += clean.replace(/^(작용\s*원리|선택\s*에너지|원리|진단|판단)/, '') + '\n';
+                    else if (clean.match(/^(생리적\s*상태|결과|처치|이유)/)) sObj.sta_c += clean.replace(/^(생리적\s*상태|결과|처치|이유)/, '') + '\n';
+                    else if (clean.match(/^학습\s*포인트/)) sObj.pnt_c += clean.replace(/^학습\s*포인트/, '') + '\n';
+                    else sObj.sit_c += clean + '\n'; // 완전 깨진 경우 지워지지 않도록 최상단에 덤프
                 }
             }
-            // 4. 비교표 파싱
+            // 4. 다단 비교표
             else if (mode === 'C' && cObj) {
-                if (checkStr.startsWith('---') || checkStr.startsWith('===')) continue;
-                let cols = cleanLine.split(/\t|\|/).map(s=>s.trim()).filter(s=>s);
-                if (cols.length >= 2) { 
-                    if (!cObj.col1Name && !checkStr.includes('항목')) { 
-                        for(let i=0; i<cols.length && i<4; i++) cObj[`col${i+1}Name`] = cols[i]; 
-                    } 
-                    else if (cObj.col1Name || checkStr.includes('항목')) {
-                        if(checkStr.includes('항목')) { 
-                            for(let i=0; i<cols.length && i<4; i++) cObj[`col${i+1}Name`] = cols[i].replace(/비교\s*항목/g, '').trim() || `항목${i+1}`; 
-                        } 
-                        else { 
-                            let c1 = ['없음','공백','-'].includes(cols[0].replace(/\s+/g,'')) ? '-' : cols[0];
-                            let c2 = ['없음','공백','-'].includes(cols[1].replace(/\s+/g,'')) ? '-' : cols[1];
-                            cObj.rows.push({ col1: c1, col2: c2, col3: cols[2]||'', col4: cols[3]||'' }); 
+                if (clean.match(/^---|===/)) continue;
+                let cols = clean.split(/\t|\|/).map(s=>s.trim()).filter(s=>s);
+                if (cols.length >= 2) {
+                    if (!cObj.col1Name && !clean.includes('항목')) {
+                        for(let i=0; i<cols.length && i<4; i++) cObj[`col${i+1}Name`] = cols[i];
+                    } else if (cObj.col1Name || clean.includes('항목')) {
+                        if(clean.includes('항목')) {
+                            for(let i=0; i<cols.length && i<4; i++) cObj[`col${i+1}Name`] = cols[i].replace(/비교\s*항목/g, '').trim() || `항목${i+1}`;
+                        } else {
+                            cObj.rows.push({ col1: cols[0]||'-', col2: cols[1]||'-', col3: cols[2]||'', col4: cols[3]||'' });
                         }
                     }
-                } else if (cols.length === 1 && cleanLine.length > 0) {
+                } else if (cols.length === 1 && clean.length > 0) {
                     if (!cObj.col1Name) { cObj.col1Name = '항목'; cObj.col2Name = '내용'; }
-                    cObj.rows.push({ col1: cleanLine, col2: '-', col3: '', col4: '' }); 
+                    cObj.rows.push({ col1: clean, col2: '-', col3: '', col4: '' });
                 }
             }
         }
