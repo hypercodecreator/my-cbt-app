@@ -9,7 +9,7 @@ window.showBulkAddModal = function() {
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
             <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 7단계 프로토콜 스마트 주입</h2>
-            <p style="color:#64748b; margin-bottom:20px;">AI나 노션에서 작성한 <b>[1] 핵심리마인드 ~ [7] 학습 데이터 프로토콜</b> 데이터를 그대로 붙여넣으세요.<br>표(사례 분석, 비교표)도 복사+붙여넣기 하시면 탭(Tab)을 인식해 자동으로 표 형태로 쪼개집니다! (빈 항목은 무시됩니다)</p>
+            <p style="color:#64748b; margin-bottom:20px;">AI나 노션에서 작성한 <b>[1] 핵심리마인드 ~ [7] 학습 데이터 프로토콜</b> 데이터를 그대로 붙여넣으세요.<br>표(사례 분석, 비교표)도 복사+붙여넣기 하시면 탭(Tab)을 인식해 자동으로 표 형태로 쪼개집니다! (없음/공백은 자동 무시)</p>
         </div>
         <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="[1] 핵심리마인드\n내용...\n\n[2] 실전대비 퀴즈 정리노트\n1. 문제 유형 : ..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
@@ -32,50 +32,81 @@ window.processUnifiedBulkAdd = async function() {
     let counts = {q:0, c:0, n:0, v:0, s:0}, qObj = null, cObj = null, nObj = null, vObj = null, sObj = null;
     let mode = '', field = '', buffer = [];
 
-    // 항목 추출 헬퍼 (콜론(:) 뒷부분 가져오기)
+    // 항목 추출 헬퍼 (유연한 콜론 매칭)
     const getAfter = (str, kw) => {
         const idx = str.indexOf(':');
         if(idx !== -1 && str.substring(0, idx).includes(kw)) return str.substring(idx+1).trim();
-        return str.replace(new RegExp(`^.*?${kw}\\s*`), '').trim();
+        const kwIdx = str.indexOf(kw);
+        if(kwIdx !== -1) {
+            let sub = str.substring(kwIdx + kw.length).trim();
+            if(sub.match(/^[:\-=]/)) sub = sub.substring(1).trim();
+            return sub;
+        }
+        return '';
     };
 
-    // 버퍼에 모인 텍스트를 각 필드에 저장
+    // 버퍼에 모인 텍스트를 각 필드에 저장 ("없음" 처리 포함)
     const saveField = () => {
         if (!mode || !field) return;
-        const val = buffer.join('\n').trim();
+        let val = buffer.join('\n').trim();
         
-        // 값이 없거나 "없음"일 때의 공백 처리
-        if (!val || val === '없음' || val === '공백') {
-            if (mode === 'Q' && qObj && field === 'options') qObj.options = [];
-            buffer = [];
-            return;
-        }
+        // 🚨 "없음", "공백" 처리 (DB에 찌꺼기가 안 남게 청소)
+        if (val === '없음' || val === '공백' || val === '-') val = ''; 
 
         if (mode === 'Q' && qObj) {
             const map = { type: 'negativeType', text: 'text', ans: 'answer', short: 'shortExplanation', exp: 'explanation', mne: 'mnemonic', mneD: 'mnemonicDesc', knR: 'knowledgeNetwork', diag: 'diagramFormula' };
-            
-            if (map[field]) { qObj[map[field]] = val; } 
+            if (map[field]) { qObj[map[field]] = val; }
             else if (field === 'options') {
-                let opts = val.split(/(?:\([1-5]\)|[①-⑤]|\d\)\s+|\d\.\s+|^O\s+\(맞다\)|^X\s+\(틀리다\))/gm).map(s => s.trim()).filter(Boolean);
-                if (opts.length <= 1 && val.includes('\n')) opts = val.split('\n').map(s => s.trim()).filter(Boolean);
-                qObj.options = opts;
-            } 
-            else if (field === 'path') { qObj.pathLevels = val.split(/\n|,|단계:/).map(s => s.trim().replace(/^\d+\s*/, '')).filter(Boolean); }
+                if (!val) qObj.options = [];
+                else {
+                    let opts = val.split(/(?:\([1-5]\)|[①-⑤]|\d\)\s+|\d\.\s+|^O\s+\(맞다\)|^X\s+\(틀리다\))/gm).map(s => s.trim()).filter(Boolean);
+                    if (opts.length <= 1 && val.includes('\n')) opts = val.split('\n').map(s => s.trim()).filter(Boolean);
+                    qObj.options = opts;
+                }
+            }
+            else if (field === 'path') { qObj.pathLevels = val ? val.split(/\n|,|단계:/).map(s => s.trim().replace(/^\d+\s*/, '')).filter(Boolean) : []; }
         } 
-        else if (mode === 'N' && nObj) nObj.content += val + '\n';
-        else if (mode === 'V' && vObj) vObj.content += val + '\n';
-        
+        else if (mode === 'N' && nObj) { if(val) nObj.content += (nObj.content?'\n':'') + val; }
+        else if (mode === 'V' && vObj) { if(val) vObj.content += (vObj.content?'\n':'') + val; }
         buffer = [];
     };
 
-    // 완성된 객체를 파이어베이스에 업로드 (플러시)
+    // 완성된 객체를 파이어베이스에 업로드
     const flush = async () => {
         saveField(); const ts = firebase.firestore.FieldValue.serverTimestamp();
-        if (qObj && qObj.text) { if(qObj.answer) qObj.answer = qObj.answer.replace(/^\d+\)\s*/, ''); qObj.updatedAt = ts; qObj.createdAt = ts; await window.db.collection('subjects').doc(window.currentSubjectId).collection('questions').add(qObj); counts.q++; qObj = null; }
-        if (cObj && cObj.rows && cObj.rows.length > 0) { cObj.createdAt = ts; cObj.updatedAt = ts; await window.db.collection('subjects').doc(window.currentSubjectId).collection('comparisons').add(cObj); counts.c++; cObj = null; }
-        if (nObj && nObj.content && nObj.content.trim()) { nObj.createdAt = ts; nObj.updatedAt = ts; await window.db.collection('subjects').doc(window.currentSubjectId).collection('notes').add(nObj); counts.n++; nObj = null; }
-        if (vObj && vObj.content && vObj.content.trim()) { vObj.createdAt = ts; vObj.updatedAt = ts; await window.db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').add(vObj); counts.v++; vObj = null; }
-        if (sObj && sObj.title) { sObj.createdAt = ts; sObj.updatedAt = ts; await window.db.collection('subjects').doc(window.currentSubjectId).collection('caseStudies').add(sObj); counts.s++; sObj = null; }
+        
+        // 1. 문제 (Q) 저장 조건: 질문 내용이 없더라도 정답이나 선택지가 있으면 저장 (안전장치)
+        if (qObj && (qObj.text || qObj.answer || qObj.options.length > 0)) { 
+            if(!qObj.text) qObj.text = "질문 내용 없음 (스마트 추가됨)";
+            if(qObj.answer) qObj.answer = qObj.answer.replace(/^\d+\)\s*/, ''); 
+            qObj.updatedAt = ts; qObj.createdAt = ts; 
+            await window.db.collection('subjects').doc(window.currentSubjectId).collection('questions').add(qObj); 
+            counts.q++; qObj = null; 
+        }
+        // 2. 다단 비교표 (C)
+        if (cObj && (cObj.rows.length > 0 || cObj.col1Name)) { 
+            cObj.createdAt = ts; cObj.updatedAt = ts; 
+            await window.db.collection('subjects').doc(window.currentSubjectId).collection('comparisons').add(cObj); 
+            counts.c++; cObj = null; 
+        }
+        // 3. 수업 노트 (N)
+        if (nObj && nObj.content && nObj.content.trim()) { 
+            nObj.createdAt = ts; nObj.updatedAt = ts; 
+            await window.db.collection('subjects').doc(window.currentSubjectId).collection('notes').add(nObj); 
+            counts.n++; nObj = null; 
+        }
+        // 4. 시각적 구조화 (V)
+        if (vObj && vObj.content && vObj.content.trim()) { 
+            vObj.createdAt = ts; vObj.updatedAt = ts; 
+            await window.db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').add(vObj); 
+            counts.v++; vObj = null; 
+        }
+        // 5. 사례 분석 (S)
+        if (sObj && (sObj.sit_c || sObj.pri_c || sObj.sta_c || sObj.pnt_c || sObj.sit_n || sObj.pri_n)) { 
+            sObj.createdAt = ts; sObj.updatedAt = ts; 
+            await window.db.collection('subjects').doc(window.currentSubjectId).collection('caseStudies').add(sObj); 
+            counts.s++; sObj = null; 
+        }
     };
 
     // 줄 단위 스마트 파싱 시작
@@ -83,68 +114,66 @@ window.processUnifiedBulkAdd = async function() {
         let clean = line.replace(/^[\s\-•]+/, '').trim();
         if(!clean) continue;
 
-        // 🚨 7단계 프로토콜 대분류 트리거
-        if (clean.match(/^\[1\]\s*핵심\s*리마인드/i)) { await flush(); mode = 'N'; nObj = { category: '미분류', title: '핵심 리마인드', content: '' }; field = 'content'; continue; }
-        else if (clean.match(/^\[2\]\s*실전대비/i)) { await flush(); mode = 'Q'; qObj = { options: [], optionImages: ['', '', '', '', ''], images: [], pathLevels: [], keywords: [], tags: [], bookmarked: false }; field = ''; continue; }
-        else if (clean.match(/^\[3\]\s*지식\s*재구성/i)) { mode = 'Q'; continue; } // Q모드 유지
-        else if (clean.match(/^\[4\]\s*시각적\s*구조화/i)) { await flush(); mode = 'V'; vObj = { title: '시각적 구조화', category: '미분류', content: '' }; field = 'content'; continue; }
-        else if (clean.match(/^\[5\]\s*사례\s*분석/i)) { await flush(); mode = 'S'; sObj = { title: '사례 분석', category: '미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' }; continue; }
-        else if (clean.match(/^\[6\]\s*다단\s*비교표/i)) { await flush(); mode = 'C'; cObj = { title: '다단 비교표', col1Name: '', col2Name: '', col3Name: '', col4Name: '', rows: [] }; continue; }
-        else if (clean.match(/^\[7\]\s*학습\s*데이터\s*프로토콜/i)) { await flush(); mode = 'N'; nObj = { category: '미분류', title: '학습 데이터 프로토콜', content: '' }; field = 'content'; continue; }
+        // 🚨 대분류(7단계) 트리거: 번호판 대괄호 [1]~[7] 완벽 인식
+        if (clean.includes('[1]') && clean.includes('리마인드')) { await flush(); mode = 'N'; nObj = { category: '미분류', title: '핵심 리마인드', content: '' }; field = 'content'; continue; }
+        else if (clean.includes('[2]') && clean.includes('실전대비')) { await flush(); mode = 'Q'; qObj = { options: [], optionImages: ['', '', '', '', ''], images: [], pathLevels: [], keywords: [], tags: [], bookmarked: false }; field = ''; continue; }
+        else if (clean.includes('[3]') && clean.includes('재구성')) { mode = 'Q'; continue; } // 모드 유지 (문제에 종속됨)
+        else if (clean.includes('[4]') && clean.includes('구조화')) { await flush(); mode = 'V'; vObj = { title: '시각적 구조화', category: '미분류', content: '' }; field = 'content'; continue; }
+        else if (clean.includes('[5]') && clean.includes('사례')) { await flush(); mode = 'S'; sObj = { title: '사례 분석', category: '미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' }; continue; }
+        else if (clean.includes('[6]') && clean.includes('비교표')) { await flush(); mode = 'C'; cObj = { title: '다단 비교표', col1Name: '', col2Name: '', col3Name: '', col4Name: '', rows: [] }; continue; }
+        else if (clean.includes('[7]') && clean.includes('프로토콜')) { await flush(); mode = 'N'; nObj = { category: '미분류', title: '학습 데이터 프로토콜', content: '' }; field = 'content'; continue; }
 
-        // 🚨 [2], [3] 퀴즈 정리노트 세부 항목 매칭
+        // 🚨 세부 항목 속성 매칭
         if (mode === 'Q') {
-            if (clean.match(/^1\.\s*문제\s*유형/)) { saveField(); field = 'type'; buffer = [getAfter(clean, '유형')]; }
-            else if (clean.match(/^2\.\s*질문\s*내용/)) { saveField(); field = 'text'; buffer = [getAfter(clean, '내용')]; }
-            else if (clean.match(/^3\.\s*정답/)) { saveField(); field = 'ans'; buffer = [getAfter(clean, '정답')]; }
-            else if (clean.match(/^4\.\s*선택지/)) { saveField(); field = 'options'; buffer = [getAfter(clean, '선택지')]; }
-            else if (clean.match(/^5\.\s*1줄\s*해설/)) { saveField(); field = 'short'; buffer = [getAfter(clean, '해설')]; }
-            else if (clean.match(/^6\.\s*상세\s*해설/)) { saveField(); field = 'exp'; buffer = [getAfter(clean, '해설')]; }
-            else if (clean.match(/^7\.\s*목차\s*정보/)) { saveField(); field = 'path'; buffer = [getAfter(clean, '정보')]; }
-            else if (clean.match(/^암기\s*코드/)) { saveField(); field = 'mne'; buffer = [getAfter(clean, '코드')]; }
-            else if (clean.match(/^해석\s*및\s*풀이/)) { saveField(); field = 'mneD'; buffer = [getAfter(clean, '풀이')]; }
-            else if (clean.match(/^지식\s*연결망/)) { saveField(); field = 'knR'; buffer = [getAfter(clean, '연결망')]; }
-            else if (clean.match(/^도식\s*및\s*핵심\s*공식/)) { saveField(); field = 'diag'; buffer = [getAfter(clean, '원리') || getAfter(clean, '공식')]; }
-            else { buffer.push(clean); }
+            if (clean.includes('1.') && clean.includes('유형')) { saveField(); field = 'type'; buffer = [getAfter(clean, '유형')]; }
+            else if (clean.includes('2.') && clean.includes('질문')) { saveField(); field = 'text'; buffer = [getAfter(clean, '내용')]; }
+            else if (clean.includes('3.') && clean.includes('정답')) { saveField(); field = 'ans'; buffer = [getAfter(clean, '정답')]; }
+            else if (clean.includes('4.') && clean.includes('선택지')) { saveField(); field = 'options'; buffer = [getAfter(clean, '선택지')]; }
+            else if (clean.includes('5.') && (clean.includes('1줄') || clean.includes('해설 요약'))) { saveField(); field = 'short'; buffer = [getAfter(clean, '해설')||getAfter(clean, '1줄')]; }
+            else if (clean.includes('6.') && clean.includes('상세')) { saveField(); field = 'exp'; buffer = [getAfter(clean, '해설')||getAfter(clean, '상세')]; }
+            else if (clean.includes('7.') && clean.includes('목차')) { saveField(); field = 'path'; buffer = [getAfter(clean, '정보')||getAfter(clean, '목차')]; }
+            else if (clean.includes('암기') && clean.includes('코드')) { saveField(); field = 'mne'; buffer = [getAfter(clean, '코드')]; }
+            else if (clean.includes('해석') && clean.includes('풀이')) { saveField(); field = 'mneD'; buffer = [getAfter(clean, '풀이')]; }
+            else if (clean.includes('지식') && clean.includes('연결망')) { saveField(); field = 'knR'; buffer = [getAfter(clean, '연결망')]; }
+            else if (clean.includes('도식') && (clean.includes('공식') || clean.includes('원리'))) { saveField(); field = 'diag'; buffer = [getAfter(clean, '원리')||getAfter(clean, '공식')]; }
+            else { buffer.push(clean); } // 해당 안 되면 이전 내용의 연속(줄바꿈)으로 인식
         }
-        // 🚨 [4], [1], [7] 텍스트 어펜드
         else if (mode === 'V' || mode === 'N') {
-            buffer.push(clean);
+            buffer.push(clean); // 노트류는 그냥 다 집어넣음
         }
-        // 🚨 [5] 사례 분석 테이블 파싱 (노션/엑셀 탭(\t) 완벽 인식)
+        // 🚨 사례 분석 (표 복사 인식 시스템)
         else if (mode === 'S' && sObj) {
-            // 헤더 행 무시
-            if(clean.match(/^구분/) && clean.match(/사례/)) continue;
+            if (clean.includes('구분') && clean.includes('사례')) continue; // 헤더 무시
             
-            // 탭(\t), 파이프(|), 3개 이상의 띄어쓰기로 칸을 쪼갬
-            let parts = clean.split(/\t|\|| {3,}/).map(s=>s.trim()).filter(s=>s);
-            if (parts.length >= 2) {
-                let key = parts[0].replace(/^:/, '').trim();
-                let caseText = parts[1] || '';
-                let nonCaseText = parts[2] || '';
+            // 노션이나 엑셀 표를 복사하면 \t(탭)이나 | 로 나뉨
+            let p = clean.split(/\t|\|/);
+            if (p.length >= 2) {
+                let key = p[0].trim(); let cText = p[1].trim(); let nText = (p[2] || '').trim();
+                if (cText === '없음' || cText === '공백') cText = '';
+                if (nText === '없음' || nText === '공백') nText = '';
 
-                if (key.match(/상황/)) { sObj.sit_c = caseText; sObj.sit_n = nonCaseText; }
-                else if (key.match(/원리|진단|판단/)) { sObj.pri_c = caseText; sObj.pri_n = nonCaseText; }
-                else if (key.match(/상태|처치/)) { sObj.sta_c = caseText; sObj.sta_n = nonCaseText; }
-                else if (key.match(/포인트/)) { sObj.pnt_c = caseText; sObj.pnt_n = nonCaseText; }
+                if (key.includes('상황')) { sObj.sit_c = cText; sObj.sit_n = nText; }
+                else if (key.includes('원리') || key.includes('진단')) { sObj.pri_c = cText; sObj.pri_n = nText; }
+                else if (key.includes('상태') || key.includes('처치')) { sObj.sta_c = cText; sObj.sta_n = nText; }
+                else if (key.includes('포인트')) { sObj.pnt_c = cText; sObj.pnt_n = nText; }
             } else {
-                // 구분자 없이 ':' 콜론으로 붙여넣어졌을 때의 보험 로직
-                if (clean.match(/^상황[:\s]/)) { const p = clean.replace(/^상황[:\s]*/, '').split(/\t|\|| {2,}/); sObj.sit_c = p[0]?.trim()||''; sObj.sit_n = p[1]?.trim()||''; }
-                else if (clean.match(/^(작용\s*원리|진단|판단)[:\s]/)) { const p = clean.replace(/^(작용\s*원리|진단|판단)[:\s]*/, '').split(/\t|\|| {2,}/); sObj.pri_c = p[0]?.trim()||''; sObj.pri_n = p[1]?.trim()||''; }
-                else if (clean.match(/^(생리적\s*상태|처치|즉각\s*처치)[:\s]/)) { const p = clean.replace(/^(생리적\s*상태|처치|즉각\s*처치)[:\s]*/, '').split(/\t|\|| {2,}/); sObj.sta_c = p[0]?.trim()||''; sObj.sta_n = p[1]?.trim()||''; }
-                else if (clean.match(/^학습\s*포인트[:\s]/)) { const p = clean.replace(/^학습\s*포인트[:\s]*/, '').split(/\t|\|| {2,}/); sObj.pnt_c = p[0]?.trim()||''; sObj.pnt_n = p[1]?.trim()||''; }
+                // 표 형태가 아니라 텍스트로 적혔을 때를 위한 보험
+                if (clean.includes('상황')) { sObj.sit_c += getAfter(clean, '상황'); }
+                else if (clean.includes('원리')) { sObj.pri_c += getAfter(clean, '원리'); }
+                else if (clean.includes('상태') || clean.includes('처치')) { sObj.sta_c += getAfter(clean, '상태') || getAfter(clean, '처치'); }
+                else if (clean.includes('포인트')) { sObj.pnt_c += getAfter(clean, '포인트'); }
             }
         }
-        // 🚨 [6] 다단 비교표 테이블 파싱
+        // 🚨 다단 비교표 (표 복사 인식 시스템)
         else if (mode === 'C' && cObj) {
-            let cols = clean.split(/\t|\|| {3,}/).map(s=>s.trim()).filter(s=>s);
+            let cols = clean.split(/\t|\|/).map(s=>s.trim());
             if (cols.length >= 2 && !clean.match(/^[-|\s]+$/)) { 
-                if (!cObj.col1Name && !cols[0].includes('비교 항목')) { 
+                if (!cObj.col1Name && !cols[0].includes('항목')) { 
                     for(let i=0; i<cols.length && i<4; i++) cObj[`col${i+1}Name`] = cols[i]; 
                 } 
-                else if (cObj.col1Name || cols[0].includes('비교 항목')) {
-                    if(cols[0].includes('비교 항목')) { 
-                        for(let i=0; i<cols.length && i<4; i++) cObj[`col${i+1}Name`] = cols[i].replace('비교 항목', '').trim() || `항목${i+1}`; 
+                else if (cObj.col1Name || cols[0].includes('항목')) {
+                    if(cols[0].includes('항목')) { 
+                        for(let i=0; i<cols.length && i<4; i++) cObj[`col${i+1}Name`] = cols[i].replace(/비교\s*항목/g, '').trim() || `항목${i+1}`; 
                     } 
                     else { 
                         cObj.rows.push({ col1: cols[0], col2: cols[1], col3: cols[2]||'', col4: cols[3]||'' }); 
