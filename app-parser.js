@@ -1,5 +1,5 @@
 // =========================================================
-// [v30.0.0] app-parser.js: Infinite Columns & Absolute Extraction
+// [v31.0.0] app-parser.js: Nested Array Bug Fix & Absolute Extraction
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -7,7 +7,7 @@ window.showBulkAddModal = function() {
     m.innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"></div>
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (무한 테이블 확장판)</h2>
+            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (무결점 확장판)</h2>
             <p style="color:#64748b; margin-bottom:10px;">표의 칸이 몇 개든 상관없습니다. 글자가 떡져있어도 절대 좌표로 찢어발깁니다.</p>
         </div>
         <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 통째로 붙여넣으세요..."></textarea>
@@ -98,12 +98,11 @@ window.processUnifiedBulkAdd = async function() {
             counts.v++;
         }
 
-        // 🚨 [5] 사례 분석: 떡진 문자열 절대 좌표 추출 (가장 강력한 블록 도려내기)
+        // 🚨 [5] 사례 분석: 떡진 문자열 절대 좌표 추출 (마크다운 선 무시)
         if (s5) {
             let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
             let s5Clean = s5.replace(/[-=|]{3,}/g, ''); // 마크다운 선 완전 파괴
 
-            // 키워드를 기준으로 그 사이의 문자열을 무식하게 뜯어오는 함수
             const extractRow = (txt, currReg, nextReg) => {
                 let m = txt.match(currReg); if(!m) return ['', ''];
                 let sub = txt.substring(m.index + m[0].length);
@@ -129,7 +128,7 @@ window.processUnifiedBulkAdd = async function() {
             }
         }
 
-        // 🚨 [6] 다단 비교표: 사용자의 아이디어 적용 (무한 배열 저장 방식 도입)
+        // 🚨 [6] 다단 비교표: Firebase Nested Array 금지 규칙 준수 ({ items: [] } 구조 사용)
         if (s6) {
             let cObj = { title:'다단 비교표', category:'미분류', headers:[], matrix:[] };
             let s6Clean = s6.replace(/(J|s|초|점|\)|에너지|여부|규칙성|적|음|조동|세동|빈맥)\s*([가-힣A-Za-z])/g, (m,p1,p2) => {
@@ -145,19 +144,21 @@ window.processUnifiedBulkAdd = async function() {
             });
 
             if (dataRows.length > 0) {
-                cObj.headers = dataRows.shift(); // 5칸이든 10칸이든 배열 통째로 헤더로 저장
-                dataRows.forEach(dr => cObj.matrix.push(dr)); // 남은 데이터도 무한정 배열로 저장
+                cObj.headers = dataRows.shift();
+                // 🚨 배열 안의 배열이 아니라, 객체({items: array})로 감싸서 넣음으로써 Firebase 에러 완벽 해결!
+                dataRows.forEach(dr => cObj.matrix.push({ items: dr })); 
             } else {
-                cObj.headers = ['비교 항목', '내용']; cObj.matrix = [['⚠️ 표 깨짐', '데이터 복원 실패']];
+                cObj.headers = ['비교 항목', '내용']; 
+                cObj.matrix = [{ items: ['⚠️ 표 깨짐', '데이터 복원 실패'] }];
             }
             cObj.createdAt = ts; cObj.updatedAt = ts;
             await db.collection('subjects').doc(window.currentSubjectId).collection('comparisons').add(cObj);
             counts.c++;
         }
 
-        // 🚨 [7] 일반 노트 2.4 찌꺼기 제거
+        // [7] 일반 노트
         if (s7) {
-            let nContent = s7.replace(/^[\d\.\s]+/, ''); // 맨 앞의 2.4 등 버전 넘버 강제 청소
+            let nContent = s7.replace(/^[\d\.\s]+/, ''); // 2.4 찌꺼기 청소
             nContent = nContent.replace(/(\[PHASE|코드:|해설:|그림|포인트:|1층:|2층:|3층:|작은 바구니|중간 바구니|큰 바구니)/g, '\n\n$1');
             await db.collection('subjects').doc(window.currentSubjectId).collection('notes').add({ category:'미분류', title:'학습 데이터 프로토콜', content: nContent.trim(), createdAt:ts, updatedAt:ts });
             counts.n++;
