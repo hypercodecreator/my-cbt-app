@@ -1,5 +1,6 @@
 // =========================================================
-// [v31.0.0] app-parser.js: Nested Array Bug Fix & Absolute Extraction
+// [v32.0.0] app-parser.js: Saussure's Structuralism Applied
+// (Restores BOTH newlines \n AND structural borders | )
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -7,8 +8,8 @@ window.showBulkAddModal = function() {
     m.innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"></div>
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (무결점 확장판)</h2>
-            <p style="color:#64748b; margin-bottom:10px;">표의 칸이 몇 개든 상관없습니다. 글자가 떡져있어도 절대 좌표로 찢어발깁니다.</p>
+            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (구조주의 최종판)</h2>
+            <p style="color:#64748b; margin-bottom:10px;">글자가 떡져 있어도 <b>잃어버린 표의 기둥(|)과 줄바꿈</b>을 구조적으로 완벽히 복원합니다.</p>
         </div>
         <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 통째로 붙여넣으세요..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
@@ -98,28 +99,39 @@ window.processUnifiedBulkAdd = async function() {
             counts.v++;
         }
 
-        // 🚨 [5] 사례 분석: 떡진 문자열 절대 좌표 추출 (마크다운 선 무시)
+        // 🚨 [5] 사례 분석: 소쉬르 구조주의 복원 (엔터 + 기둥 강제 삽입)
         if (s5) {
             let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
-            let s5Clean = s5.replace(/[-=|]{3,}/g, ''); // 마크다운 선 완전 파괴
+            let s5Clean = s5.replace(/[-=|]{3,}/g, ''); // 쓸모없는 마크다운 선 파괴
+            
+            // 💡 마법의 주문: 앞 문장과 뒷 문장 제목이 떡져있을 때, 엔터(\n)와 표 기둥(|)을 동시에 세워줍니다!
+            s5Clean = s5Clean.replace(/([가-힣a-zA-Z0-9.\)"])\s*(상황|에너지\s*설정|작용\s*원리|판단\s*근거|생리적\s*상태|학습\s*포인트|처치|결과|이유)\s*\|/g, '$1 |\n$2 |');
 
-            const extractRow = (txt, currReg, nextReg) => {
-                let m = txt.match(currReg); if(!m) return ['', ''];
-                let sub = txt.substring(m.index + m[0].length);
-                if(nextReg) { let nm = sub.match(nextReg); if(nm) sub = sub.substring(0, nm.index); }
-                let cols = sub.split('|').map(s=>s.trim());
-                return [cols[0]||'', cols[1]||''];
-            };
+            let tableLines = s5Clean.split('\n').filter(l => l.includes('|'));
+            let dataRows = [];
+            tableLines.forEach(l => {
+                let cols = l.split('|').map(s=>s.trim());
+                if(cols.length < 2) return;
+                if(cols[0] === '') cols.shift(); if(cols[cols.length-1] === '') cols.pop();
+                if(!cols.join('').includes('구분') && !cols.join('').includes('구체적 사례')) { dataRows.push(cols); }
+            });
 
-            let r1 = extractRow(s5Clean, /(상황)\s*\|?/, /(작용\s*원리|에너지\s*설정|판단\s*근거|생리적\s*상태|처치|결과|학습\s*포인트)\s*\|?/);
-            let r2 = extractRow(s5Clean, /(작용\s*원리|에너지\s*설정|판단\s*근거)\s*\|?/, /(생리적\s*상태|상태|처치|결과|이유)\s*\|?/);
-            let r3 = extractRow(s5Clean, /(생리적\s*상태|상태|처치|결과|이유)\s*\|?/, /(학습\s*포인트|포인트)\s*\|?/);
-            let r4 = extractRow(s5Clean, /(학습\s*포인트|포인트)\s*\|?/, null);
+            if(dataRows.length > 0) {
+                dataRows.forEach(row => {
+                    let k = (row[0] || '').replace(/\s+/g,'');
+                    let c = row[1] || ''; let n = row[2] || '';
+                    if(['없음','공백','-','해당없음'].includes(c.replace(/\s+/g,''))) c = '';
+                    if(['없음','공백','-','해당없음'].includes(n.replace(/\s+/g,''))) n = '';
 
-            sObj.sit_c = r1[0]; sObj.sit_n = r1[1];
-            sObj.pri_c = r2[0]; sObj.pri_n = r2[1];
-            sObj.sta_c = r3[0]; sObj.sta_n = r3[1];
-            sObj.pnt_c = r4[0]; sObj.pnt_n = r4[1];
+                    if (k.includes('상황')) { sObj.sit_c = c; sObj.sit_n = n; }
+                    else if (k.includes('원리')||k.includes('진단')||k.includes('설정')||k.includes('판단')||k.includes('근거')) { sObj.pri_c = c; sObj.pri_n = n; }
+                    else if (k.includes('상태')||k.includes('처치')||k.includes('결과')||k.includes('이유')) { sObj.sta_c = c; sObj.sta_n = n; }
+                    else if (k.includes('포인트')) { sObj.pnt_c = c; sObj.pnt_n = n; }
+                });
+            } else {
+                sObj.sit_c = s5.trim();
+                sObj.sit_n = "⚠️ 표 데이터가 인식되지 않았습니다. AI에게 마크다운 표 출력을 요청하세요.";
+            }
 
             if (sObj.sit_c || sObj.pri_c || sObj.sta_c || sObj.pnt_c) {
                 sObj.createdAt = ts; sObj.updatedAt = ts;
@@ -128,24 +140,28 @@ window.processUnifiedBulkAdd = async function() {
             }
         }
 
-        // 🚨 [6] 다단 비교표: Firebase Nested Array 금지 규칙 준수 ({ items: [] } 구조 사용)
+        // 🚨 [6] 다단 비교표: 소쉬르 구조주의 복원 (엔터 + 기둥 강제 삽입)
         if (s6) {
             let cObj = { title:'다단 비교표', category:'미분류', headers:[], matrix:[] };
-            let s6Clean = s6.replace(/(J|s|초|점|\)|에너지|여부|규칙성|적|음|조동|세동|빈맥)\s*([가-힣A-Za-z])/g, (m,p1,p2) => {
-                if(p1==='S' && p2==='폭') return m; return p1+'\n'+p2;
+            let s6Clean = s6.replace(/[-=|]{3,}/g, '');
+            
+            // 💡 마법의 주문: "200 J심방세동" 처럼 단위와 다음 제목이 붙어있으면 벽(|)과 엔터(\n)를 동시에 쳐서 분리합니다!
+            s6Clean = s6Clean.replace(/(J|s|초|점|\)|에너지|여부|규칙성|적|음|조동|세동|빈맥)\s*([가-힣A-Z])/g, (m,p1,p2) => {
+                if(p1.toUpperCase()==='S' && p2==='폭') return m; // 'QRS 폭'은 찢어지지 않게 보호
+                return p1 + ' |\n' + p2;
             });
+
             let tableLines = s6Clean.split('\n').filter(l => l.includes('|'));
             let dataRows = [];
             tableLines.forEach(l => {
-                if (l.replace(/\s+/g,'').includes('---|') || l.replace(/\s+/g,'').includes('===')) return;
                 let cols = l.split('|').map(s=>s.trim());
+                if(cols.length < 2) return;
                 if(cols[0] === '') cols.shift(); if(cols[cols.length-1] === '') cols.pop();
                 dataRows.push(cols);
             });
 
             if (dataRows.length > 0) {
                 cObj.headers = dataRows.shift();
-                // 🚨 배열 안의 배열이 아니라, 객체({items: array})로 감싸서 넣음으로써 Firebase 에러 완벽 해결!
                 dataRows.forEach(dr => cObj.matrix.push({ items: dr })); 
             } else {
                 cObj.headers = ['비교 항목', '내용']; 
@@ -156,9 +172,10 @@ window.processUnifiedBulkAdd = async function() {
             counts.c++;
         }
 
-        // [7] 일반 노트
+        // 🚨 [7] 일반 노트 (제1원칙 찌꺼기 청소기)
         if (s7) {
-            let nContent = s7.replace(/^[\d\.\s]+/, ''); // 2.4 찌꺼기 청소
+            // [PHASE 라는 글자가 나오기 전의 모든 텍스트(예: 2.4 등)를 무자비하게 날려버림!
+            let nContent = s7.replace(/^[\s\S]*?(?=\[PHASE)/i, '');
             nContent = nContent.replace(/(\[PHASE|코드:|해설:|그림|포인트:|1층:|2층:|3층:|작은 바구니|중간 바구니|큰 바구니)/g, '\n\n$1');
             await db.collection('subjects').doc(window.currentSubjectId).collection('notes').add({ category:'미분류', title:'학습 데이터 프로토콜', content: nContent.trim(), createdAt:ts, updatedAt:ts });
             counts.n++;
