@@ -1,6 +1,6 @@
 // =========================================================
-// [v36.0.0] app-parser.js: Surgical Precision Ungluing
-// (No more false positive splits. Only targets glued boundaries)
+// [v38.0.0] app-parser.js: The Absolute Universal Table Extractor
+// (Ignores --- dividers, Parses row-by-row strictly via | or \t)
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -8,8 +8,8 @@ window.showBulkAddModal = function() {
     m.innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"></div>
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (마스터피스)</h2>
-            <p style="color:#64748b; margin-bottom:10px;">완벽한 마크다운 표는 절대 건드리지 않으며, 떡진 텍스트만 정밀 타겟팅하여 복원합니다.</p>
+            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (무적의 범용 추출)</h2>
+            <p style="color:#64748b; margin-bottom:10px;">마크다운 선(---)이 없어도, 표 형태만 유지되어 있으면 100% 흡수합니다.</p>
         </div>
         <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 통째로 붙여넣으세요..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
@@ -27,6 +27,7 @@ window.processUnifiedBulkAdd = async function() {
     window.showLoading();
 
     try {
+        // 대분류 7구역 분해 방어선 구축 (번호에 의존하지 않음)
         text = text.replace(/([^\n])([\[(]?1[\])]?\.?\s*(?:정답\s*및\s*)?핵심\s*리마인드)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?2[\])]?\.?\s*실전\s*대비)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?3[\])]?\.?\s*지식\s*재구성)/i, '$1\n$2');
@@ -59,6 +60,7 @@ window.processUnifiedBulkAdd = async function() {
 
         let coreRemind = s1.replace(/\[.*?\]/g, '').replace(/정답은.*?(입니다|다\.)/i, '').replace(/핵심\s*리마인드[:\s]*/i, '').trim();
 
+        // 🚨 [2] 퀴즈 추출
         if (s2 || coreRemind) {
             let qObj = { category:'미분류', negativeType:'', text:'', answer:'', shortExplanation:'', explanation:'', options:[], optionImages:['','','','',''], images:[], pathLevels:[], bookmarked:false, coreRemind: coreRemind };
             const qKeys = [{ k: 'type', r: /문제\s*유형[:\s]*/i }, { k: 'text', r: /질문\s*내용[:\s]*/i }, { k: 'ans', r: /정답(?!\s*및)[:\s]*/i }, { k: 'opts', r: /선택지[:\s]*/i }, { k: 'short', r: /(?:1줄\s*해설|해설\s*요약)[:\s]*/i }, { k: 'exp', r: /상세\s*해설[:\s]*/i }, { k: 'path', r: /목차\s*정보[:\s]*/i }];
@@ -77,6 +79,7 @@ window.processUnifiedBulkAdd = async function() {
             await db.collection('subjects').doc(window.currentSubjectId).collection('questions').add(qObj); counts.q++;
         }
 
+        // 🚨 [3] 지식 재구성 (수식 클리닝 강화)
         if (s3) {
             let rObj = { title:'새 지식 재구성', category:'미분류', mnemonic:'', mnemonicDesc:'', knowledgeNetwork:'', diagramFormula:'', keywords:[], tags:[] };
             const rKeys = [{ k: 'mne', r: /암기\s*코드[:\s]*/i }, { k: 'mneD', r: /해석\s*및\s*풀이[:\s]*/i }, { k: 'knR', r: /지식\s*연결망[:\s]*/i }, { k: 'diag', r: /도식\s*및\s*핵심\s*(?:공식|원리)[:\s]*/i }, { k: 'kw', r: /키워드[:\s]*/i }, { k: 'tg', r: /태그[:\s]*/i }];
@@ -87,7 +90,14 @@ window.processUnifiedBulkAdd = async function() {
                 for (let j = 0; j < rKeys.length; j++) { if (i === j) continue; let m2 = subText.match(rKeys[j].r); if (m2 && m2.index < closest) closest = m2.index; }
                 rData[rKeys[i].k] = subText.substring(0, closest).trim();
             }
-            if(rData.mne) rObj.mnemonic = rData.mne; if(rData.mneD) rObj.mnemonicDesc = rData.mneD; if(rData.knR) rObj.knowledgeNetwork = rData.knR; if(rData.diag) rObj.diagramFormula = rData.diag;
+            if(rData.mne) rObj.mnemonic = rData.mne; if(rData.mneD) rObj.mnemonicDesc = rData.mneD; if(rData.knR) rObj.knowledgeNetwork = rData.knR; 
+            
+            // LaTeX 수식 기호($ 및 \text 등)를 화면에서 보기 좋게 클리닝!
+            if(rData.diag) {
+                let cleanDiag = rData.diag.replace(/\$/g, '').replace(/\\text\{([^}]+)\}/g, '$1');
+                rObj.diagramFormula = cleanDiag;
+            }
+            
             if(rData.kw) { rObj.keywords = rData.kw.replace(/#/g,'').split(/[,|/]+|\s+/).map(s=>s.trim()).filter(Boolean); if(rObj.keywords.length>0) rObj.title = rObj.keywords[0] + ' 지식 재구성'; }
             if(rData.tg) rObj.tags = rData.tg.replace(/#/g,'').split(/[,|/]+|\s+/).map(s=>s.trim()).filter(Boolean);
             rObj.createdAt = ts; rObj.updatedAt = ts; await db.collection('subjects').doc(window.currentSubjectId).collection('reconstructions').add(rObj); counts.r++;
@@ -99,48 +109,41 @@ window.processUnifiedBulkAdd = async function() {
             counts.v++;
         }
 
-        // 🧠 범용 파서: | 기호 또는 \t 기호로 표를 분해
-        const parseUniversalTable = (textBlock) => {
+        // 🧠 절대 무적 범용 파서 엔진: "엔터를 기준으로 줄을 읽고, 그 줄에 | 나 \t 가 하나라도 있으면 배열에 넣는다!"
+        const parseAbsoluteTable = (textBlock) => {
             let lines = textBlock.split('\n');
             let rows = [];
             lines.forEach(l => {
+                // 마크다운 구분선(---|)은 버림
                 if (l.replace(/\s+/g,'').match(/^[-=|]+$/)) return;
-                let cols = l.split(/\||\t/).map(s=>s.trim());
-                if (cols.length > 0 && cols[0] === '') cols.shift();
-                if (cols.length > 0 && cols[cols.length-1] === '') cols.pop();
-                if (cols.length >= 2) rows.push(cols);
+                
+                // 줄 안에 파이프(|)나 탭(\t)이 있으면 표 데이터로 간주!
+                if (l.includes('|') || l.includes('\t')) {
+                    let cols = l.split(/\||\t/).map(s=>s.trim());
+                    if (cols.length > 0 && cols[0] === '') cols.shift();
+                    if (cols.length > 0 && cols[cols.length-1] === '') cols.pop();
+                    if (cols.length >= 2) rows.push(cols);
+                }
             });
             return rows;
         };
 
-        // 🚨 [5] 사례 분석: 정밀 타겟팅 심폐소생술
+        // 🚨 [5] 사례 분석 (절대 무적 추출 도입 - 제목 신경 안씀!)
         if (s5) {
             let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
-            let s5Clean = s5.replace(/[-=|]{3,}/g, ''); // 쓸데없는 마크다운 선만 조용히 날림
-            
-            // 💡 외과 수술: 앞 문장 끝과 다음 줄 제목이 붙어있는 곳만 정확히 찢어서 엔터(\n) 주입!
-            s5Clean = s5Clean.replace(/([^\n|])\s*(상황|작용\s*원리|에너지\s*설정|판단\s*근거|생리적\s*상태|학습\s*포인트)\s*\|/g, '$1 |\n$2 |');
-            
-            let dataRows = parseUniversalTable(s5Clean);
+            let dataRows = parseAbsoluteTable(s5);
 
             if (dataRows.length > 0) {
-                dataRows.forEach(row => {
-                    let k = (row[0] || '').replace(/\s+/g,'');
-                    if(k.includes('구분') || k.includes('구체적사례')) return; // 제목줄 스킵
-                    
-                    let c = row[1] || ''; let n = row[2] || '';
-                    if(['없음','공백','-','해당없음'].includes(c.replace(/\s+/g,''))) c = '';
-                    if(['없음','공백','-','해당없음'].includes(n.replace(/\s+/g,''))) n = '';
-
-                    // 유동적 단어 매핑 (판단 근거 -> 생리적 상태로 맵핑 등)
-                    if (k.includes('상황')) { sObj.sit_c = c; sObj.sit_n = n; }
-                    else if (k.match(/원리|진단|설정|에너지|작동/)) { sObj.pri_c = c; sObj.pri_n = n; }
-                    else if (k.match(/상태|처치|결과|이유|근거|판단/)) { sObj.sta_c = c; sObj.sta_n = n; }
-                    else if (k.match(/포인트/)) { sObj.pnt_c = c; sObj.pnt_n = n; }
-                });
+                // 헤더를 제외한 순수 데이터 행들만 걸러냄
+                let pureData = dataRows.filter(row => !row.join('').includes('구분') && !row.join('').includes('구체적 사례'));
+                
+                if(pureData.length >= 1) { sObj.sit_c = pureData[0][1]||''; sObj.sit_n = pureData[0][2]||''; }
+                if(pureData.length >= 2) { sObj.pri_c = pureData[1][1]||''; sObj.pri_n = pureData[1][2]||''; }
+                if(pureData.length >= 3) { sObj.sta_c = pureData[2][1]||''; sObj.sta_n = pureData[2][2]||''; }
+                if(pureData.length >= 4) { sObj.pnt_c = pureData[3][1]||''; sObj.pnt_n = pureData[3][2]||''; }
             } else {
                 sObj.sit_c = s5.trim();
-                sObj.sit_n = "⚠️ 표 데이터 인식 실패. AI에게 마크다운 표 출력을 요청하세요.";
+                sObj.sit_n = "⚠️ 표가 아닌 텍스트로 입력되었습니다.";
             }
 
             if (sObj.sit_c || sObj.pri_c || sObj.sta_c || sObj.pnt_c) {
@@ -150,21 +153,15 @@ window.processUnifiedBulkAdd = async function() {
             }
         }
 
-        // 🚨 [6] 다단 비교표: 정밀 타겟팅 심폐소생술 (괄호 찢김 완벽 방지)
+        // 🚨 [6] 다단 비교표 (절대 무적 추출 도입 - 무한 배열 보존!)
         if (s6) {
             let cObj = { title:'다단 비교표', category:'미분류', headers:[], matrix:[] };
-            let s6Clean = s6.replace(/[-=|]{3,}/g, ''); // 쓸데없는 마크다운 선 날림
-
-            // 💡 외과 수술: (J|에너지) 뒤에 (PSVT|심방|심실)이 바로 붙어있을 때만 찢어서 엔터(\n) 주입!
-            // 이렇게 하면 (Biphasic) 에너지 같은 멀쩡한 제목은 절대 찢어지지 않습니다.
-            s6Clean = s6Clean.replace(/(J|에너지|여부|규칙성|적|음|조동|세동|빈맥)\s*(PSVT|심방|심실|정상|비정상|동성|단형|다형)/g, '$1 |\n$2');
-
-            let dataRows = parseUniversalTable(s6Clean);
+            let dataRows = parseAbsoluteTable(s6);
 
             if (dataRows.length > 0) {
-                cObj.headers = dataRows.shift(); // 첫 줄은 무조건 헤더 배열로 통째로 저장 (5칸 완벽 보존)
+                cObj.headers = dataRows.shift(); // 첫 줄은 무조건 헤더
                 dataRows.forEach(dr => {
-                    cObj.matrix.push({ items: dr }); // 데이터도 무한정 배열로 저장
+                    cObj.matrix.push({ items: dr }); // 나머지는 무조건 배열로 밀어 넣음
                 });
             } else {
                 cObj.headers = ['비교 항목', '내용']; 
@@ -175,10 +172,10 @@ window.processUnifiedBulkAdd = async function() {
             counts.c++;
         }
 
-        // [7] 일반 노트 (2.4 찌꺼기 완벽 청소)
+        // 🚨 [7] 일반 노트 (전면 개편: [PHASE] 찌꺼기 청소)
         if (s7) {
-            let nContent = s7.replace(/^[\s\S]*?(?=\[PHASE)/i, ''); // [PHASE 가 나오기 전의 모든 텍스트(예: 2.4) 증발!
-            nContent = nContent.replace(/(\[PHASE|코드:|해설:|그림|포인트:|1층:|2층:|3층:|작은 바구니|중간 바구니|큰 바구니)/g, '\n\n$1');
+            // [PHASE 가 나오기 전의 모든 텍스트(예: 2.4)를 무자비하게 제거
+            let nContent = s7.replace(/^[\s\S]*?(?=\[PHASE)/i, '');
             await db.collection('subjects').doc(window.currentSubjectId).collection('notes').add({ category:'미분류', title:'학습 데이터 프로토콜', content: nContent.trim(), createdAt:ts, updatedAt:ts });
             counts.n++;
         }
