@@ -1,5 +1,5 @@
 // =========================================================
-// [v28.0.0] app-parser.js: Path Hyphen Fix & Dynamic Table Mapping
+// [v28.0.0] app-parser.js: Unbreakable Markdown Table & Path Parser
 // =========================================================
 
 window.showBulkAddModal = function() {
@@ -226,7 +226,7 @@ window.processUnifiedBulkAdd = async function() {
         window.hideLoading(); window.closeModal(); 
         if (window.currentSubjectId && typeof window.manageSubject === 'function') window.manageSubject(window.currentSubjectId);
         
-        alert(`✨ 그라이스 격률 2.0 스마트 주입 성공!\n✅ 퀴즈: ${counts.q}건\n🧠 재구성: ${counts.r}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 수업노트: ${counts.n}건`);
+        alert(`✨ 제1원칙 퀀텀 주입 완벽 성공!\n✅ 퀴즈: ${counts.q}건\n🧠 재구성: ${counts.r}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 수업노트: ${counts.n}건`);
 
     } catch(err) {
         window.hideLoading(); console.error(err); alert("🚨 파싱 오류: " + err.message);
