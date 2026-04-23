@@ -1,6 +1,5 @@
 // =========================================================
-// [v38.0.0] app-parser.js: The Absolute Universal Table Extractor
-// (Ignores --- dividers, Parses row-by-row strictly via | or \t)
+// [v39.0.0] app-parser.js: LaTeX Cleaner & Absolute Row Splitter
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -27,7 +26,6 @@ window.processUnifiedBulkAdd = async function() {
     window.showLoading();
 
     try {
-        // 대분류 7구역 분해 방어선 구축 (번호에 의존하지 않음)
         text = text.replace(/([^\n])([\[(]?1[\])]?\.?\s*(?:정답\s*및\s*)?핵심\s*리마인드)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?2[\])]?\.?\s*실전\s*대비)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?3[\])]?\.?\s*지식\s*재구성)/i, '$1\n$2');
@@ -60,7 +58,6 @@ window.processUnifiedBulkAdd = async function() {
 
         let coreRemind = s1.replace(/\[.*?\]/g, '').replace(/정답은.*?(입니다|다\.)/i, '').replace(/핵심\s*리마인드[:\s]*/i, '').trim();
 
-        // 🚨 [2] 퀴즈 추출
         if (s2 || coreRemind) {
             let qObj = { category:'미분류', negativeType:'', text:'', answer:'', shortExplanation:'', explanation:'', options:[], optionImages:['','','','',''], images:[], pathLevels:[], bookmarked:false, coreRemind: coreRemind };
             const qKeys = [{ k: 'type', r: /문제\s*유형[:\s]*/i }, { k: 'text', r: /질문\s*내용[:\s]*/i }, { k: 'ans', r: /정답(?!\s*및)[:\s]*/i }, { k: 'opts', r: /선택지[:\s]*/i }, { k: 'short', r: /(?:1줄\s*해설|해설\s*요약)[:\s]*/i }, { k: 'exp', r: /상세\s*해설[:\s]*/i }, { k: 'path', r: /목차\s*정보[:\s]*/i }];
@@ -79,7 +76,7 @@ window.processUnifiedBulkAdd = async function() {
             await db.collection('subjects').doc(window.currentSubjectId).collection('questions').add(qObj); counts.q++;
         }
 
-        // 🚨 [3] 지식 재구성 (수식 클리닝 강화)
+        // 🚨 [3] 지식 재구성 (LaTeX 수식 클리너 도입)
         if (s3) {
             let rObj = { title:'새 지식 재구성', category:'미분류', mnemonic:'', mnemonicDesc:'', knowledgeNetwork:'', diagramFormula:'', keywords:[], tags:[] };
             const rKeys = [{ k: 'mne', r: /암기\s*코드[:\s]*/i }, { k: 'mneD', r: /해석\s*및\s*풀이[:\s]*/i }, { k: 'knR', r: /지식\s*연결망[:\s]*/i }, { k: 'diag', r: /도식\s*및\s*핵심\s*(?:공식|원리)[:\s]*/i }, { k: 'kw', r: /키워드[:\s]*/i }, { k: 'tg', r: /태그[:\s]*/i }];
@@ -90,11 +87,14 @@ window.processUnifiedBulkAdd = async function() {
                 for (let j = 0; j < rKeys.length; j++) { if (i === j) continue; let m2 = subText.match(rKeys[j].r); if (m2 && m2.index < closest) closest = m2.index; }
                 rData[rKeys[i].k] = subText.substring(0, closest).trim();
             }
-            if(rData.mne) rObj.mnemonic = rData.mne; if(rData.mneD) rObj.mnemonicDesc = rData.mneD; if(rData.knR) rObj.knowledgeNetwork = rData.knR; 
             
-            // LaTeX 수식 기호($ 및 \text 등)를 화면에서 보기 좋게 클리닝!
+            if(rData.mne) rObj.mnemonic = rData.mne; 
+            if(rData.mneD) rObj.mnemonicDesc = rData.mneD; 
+            if(rData.knR) rObj.knowledgeNetwork = rData.knR; 
+            
+            // 💡 지저분한 수학 기호($ \text 등)를 깔끔한 평문으로 세탁!
             if(rData.diag) {
-                let cleanDiag = rData.diag.replace(/\$/g, '').replace(/\\text\{([^}]+)\}/g, '$1');
+                let cleanDiag = rData.diag.replace(/\$/g, '').replace(/\\text\{([^}]+)\}/g, '$1').replace(/\\[a-zA-Z]+/g, '').replace(/[\{\}]/g, '');
                 rObj.diagramFormula = cleanDiag;
             }
             
@@ -109,15 +109,12 @@ window.processUnifiedBulkAdd = async function() {
             counts.v++;
         }
 
-        // 🧠 절대 무적 범용 파서 엔진: "엔터를 기준으로 줄을 읽고, 그 줄에 | 나 \t 가 하나라도 있으면 배열에 넣는다!"
+        // 🧠 절대 무적 범용 표 파서 엔진
         const parseAbsoluteTable = (textBlock) => {
             let lines = textBlock.split('\n');
             let rows = [];
             lines.forEach(l => {
-                // 마크다운 구분선(---|)은 버림
                 if (l.replace(/\s+/g,'').match(/^[-=|]+$/)) return;
-                
-                // 줄 안에 파이프(|)나 탭(\t)이 있으면 표 데이터로 간주!
                 if (l.includes('|') || l.includes('\t')) {
                     let cols = l.split(/\||\t/).map(s=>s.trim());
                     if (cols.length > 0 && cols[0] === '') cols.shift();
@@ -128,22 +125,26 @@ window.processUnifiedBulkAdd = async function() {
             return rows;
         };
 
-        // 🚨 [5] 사례 분석 (절대 무적 추출 도입 - 제목 신경 안씀!)
+        // 🚨 [5] 사례 분석 (설정함이유 떡짐 완전 파괴!)
         if (s5) {
             let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
-            let dataRows = parseAbsoluteTable(s5);
+            let s5Clean = s5.replace(/[-=|]{3,}/g, '');
+            
+            // 💡 "설정함이유" 처럼 완전히 붙어버린 문장을 강제로 찢어 엔터 삽입!
+            s5Clean = s5Clean.replace(/([^\n])\s*(상황|작용\s*원리|에너지\s*설정|판단\s*근거|이유|생리적\s*상태|처치|결과|학습\s*포인트)\s*\|/g, '$1\n$2 |');
+            
+            let dataRows = parseAbsoluteTable(s5Clean);
 
             if (dataRows.length > 0) {
-                // 헤더를 제외한 순수 데이터 행들만 걸러냄
+                // 머리글(구분)을 제외한 순수 4줄만 배열로 추출하여 순서대로 꽂아 넣음!
                 let pureData = dataRows.filter(row => !row.join('').includes('구분') && !row.join('').includes('구체적 사례'));
-                
                 if(pureData.length >= 1) { sObj.sit_c = pureData[0][1]||''; sObj.sit_n = pureData[0][2]||''; }
                 if(pureData.length >= 2) { sObj.pri_c = pureData[1][1]||''; sObj.pri_n = pureData[1][2]||''; }
                 if(pureData.length >= 3) { sObj.sta_c = pureData[2][1]||''; sObj.sta_n = pureData[2][2]||''; }
                 if(pureData.length >= 4) { sObj.pnt_c = pureData[3][1]||''; sObj.pnt_n = pureData[3][2]||''; }
             } else {
                 sObj.sit_c = s5.trim();
-                sObj.sit_n = "⚠️ 표가 아닌 텍스트로 입력되었습니다.";
+                sObj.sit_n = "⚠️ 표 데이터 인식 실패. AI에게 마크다운 표 출력을 요청하세요.";
             }
 
             if (sObj.sit_c || sObj.pri_c || sObj.sta_c || sObj.pnt_c) {
@@ -153,16 +154,12 @@ window.processUnifiedBulkAdd = async function() {
             }
         }
 
-        // 🚨 [6] 다단 비교표 (절대 무적 추출 도입 - 무한 배열 보존!)
         if (s6) {
             let cObj = { title:'다단 비교표', category:'미분류', headers:[], matrix:[] };
             let dataRows = parseAbsoluteTable(s6);
-
             if (dataRows.length > 0) {
-                cObj.headers = dataRows.shift(); // 첫 줄은 무조건 헤더
-                dataRows.forEach(dr => {
-                    cObj.matrix.push({ items: dr }); // 나머지는 무조건 배열로 밀어 넣음
-                });
+                cObj.headers = dataRows.shift();
+                dataRows.forEach(dr => { cObj.matrix.push({ items: dr }); });
             } else {
                 cObj.headers = ['비교 항목', '내용']; 
                 cObj.matrix = [{ items: ['⚠️ 표 깨짐', '데이터 복원 실패'] }];
@@ -172,9 +169,7 @@ window.processUnifiedBulkAdd = async function() {
             counts.c++;
         }
 
-        // 🚨 [7] 일반 노트 (전면 개편: [PHASE] 찌꺼기 청소)
         if (s7) {
-            // [PHASE 가 나오기 전의 모든 텍스트(예: 2.4)를 무자비하게 제거
             let nContent = s7.replace(/^[\s\S]*?(?=\[PHASE)/i, '');
             await db.collection('subjects').doc(window.currentSubjectId).collection('notes').add({ category:'미분류', title:'학습 데이터 프로토콜', content: nContent.trim(), createdAt:ts, updatedAt:ts });
             counts.n++;
