@@ -1,6 +1,6 @@
 // =========================================================
-// [v33.0.0] app-parser.js: Smart Bypass & Intelligent Table Extraction
-// (Preserves valid markdown, targets ONLY true glued text)
+// [v35.0.0] app-parser.js: Universal Table Parser (Tabs & Pipes)
+// (Complete removal of rigid pipe-only filters)
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -8,8 +8,8 @@ window.showBulkAddModal = function() {
     m.innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"></div>
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (마스터피스)</h2>
-            <p style="color:#64748b; margin-bottom:10px;">완벽한 마크다운 표는 절대 건드리지 않고 원형 그대로 보존하여 추출합니다.</p>
+            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (최종 진화형)</h2>
+            <p style="color:#64748b; margin-bottom:10px;">웹에서 드래그한 표(탭 기호)와 마크다운(| 기호)을 모두 100% 완벽하게 인식합니다.</p>
         </div>
         <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 통째로 붙여넣으세요..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
@@ -27,6 +27,7 @@ window.processUnifiedBulkAdd = async function() {
     window.showLoading();
 
     try {
+        // 대분류 구조 강제 복원
         text = text.replace(/([^\n])([\[(]?1[\])]?\.?\s*(?:정답\s*및\s*)?핵심\s*리마인드)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?2[\])]?\.?\s*실전\s*대비)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?3[\])]?\.?\s*지식\s*재구성)/i, '$1\n$2');
@@ -99,44 +100,42 @@ window.processUnifiedBulkAdd = async function() {
             counts.v++;
         }
 
-        // 🧠 핵심 헬퍼 함수: 마크다운 표가 정상인지 확인하고 파싱
-        const parseMarkdownTable = (textBlock) => {
-            let lines = textBlock.split('\n').filter(l => l.includes('|'));
+        // 🧠 핵심 범용 파서: | 기호가 없어도 탭(\t)만 있으면 무조건 표로 분해합니다!
+        const parseUniversalTable = (textBlock) => {
+            let lines = textBlock.split('\n');
             let rows = [];
             lines.forEach(l => {
-                if (l.replace(/\s+/g,'').includes('---|') || l.replace(/\s+/g,'').includes('===')) return;
-                let cols = l.split('|').map(s=>s.trim());
-                if (cols.length < 2) return;
-                if (cols[0] === '') cols.shift();
-                if (cols[cols.length-1] === '') cols.pop();
-                rows.push(cols);
+                if (l.replace(/\s+/g,'').match(/^[-=|]+$/)) return; // 마크다운 구분선 무시
+                let cols = l.split(/\||\t/).map(s=>s.trim()); // 파이프 또는 탭으로 분해!
+                if (cols.length > 0 && cols[0] === '') cols.shift();
+                if (cols.length > 0 && cols[cols.length-1] === '') cols.pop();
+                if (cols.length >= 2) rows.push(cols); // 칸이 2개 이상이면 무조건 표 데이터로 인정!
             });
-            return rows; // 행이 2개 이상(제목+내용)이면 정상적인 표로 인정!
+            return rows;
         };
 
-        // 🚨 [5] 사례 분석 (Smart Bypass 적용)
+        // 🚨 [5] 사례 분석 (범용 파서 적용)
         if (s5) {
             let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
-            let dataRows = parseMarkdownTable(s5);
+            let dataRows = parseUniversalTable(s5);
 
-            // 💡 정상적인 표가 아니면(행이 2개 미만이면) 그때만 심폐소생술 시도
+            // 표가 완전히 떡진 경우에만 심폐소생술 시도 (엔터와 탭을 강제로 주입)
             if (dataRows.length < 2) {
                 let s5Clean = s5.replace(/[-=|]{3,}/g, '');
-                // 엔터(\n)를 뛰어넘지 못하도록 \s* 대신 [ \t]* 사용! (오지랖 원천 차단)
-                s5Clean = s5Clean.replace(/([가-힣a-zA-Z0-9.\)"])[ \t]*(상황|작용\s*원리|에너지\s*설정|판단\s*근거|생리적\s*상태|처치|결과|이유|학습\s*포인트)[ \t]*\|/g, '$1 |\n$2 |');
-                dataRows = parseMarkdownTable(s5Clean);
+                s5Clean = s5Clean.replace(/([가-힣a-zA-Z0-9.\)"])[ \t]*(상황|작용\s*원리|에너지\s*설정|판단\s*근거|생리적\s*상태|처치|결과|이유|학습\s*포인트)[ \t]*(?:\||\t)?/g, '$1\n$2\t');
+                dataRows = parseUniversalTable(s5Clean);
             }
 
             if (dataRows.length > 0) {
                 dataRows.forEach(row => {
                     let k = (row[0] || '').replace(/\s+/g,'');
-                    if(k.includes('구분') || k.includes('구체적사례')) return; // 헤더 스킵
+                    if(k.includes('구분') || k.includes('구체적사례')) return; // 제목 줄 무시
                     
                     let c = row[1] || ''; let n = row[2] || '';
                     if(['없음','공백','-','해당없음'].includes(c.replace(/\s+/g,''))) c = '';
                     if(['없음','공백','-','해당없음'].includes(n.replace(/\s+/g,''))) n = '';
 
-                    // 유동적 단어 매핑
+                    // 단어가 뭐든 유연하게 매핑
                     if (k.includes('상황')) { sObj.sit_c = c; sObj.sit_n = n; }
                     else if (k.match(/원리|진단|설정|에너지|작동/)) { sObj.pri_c = c; sObj.pri_n = n; }
                     else if (k.match(/상태|처치|결과|이유|근거|판단/)) { sObj.sta_c = c; sObj.sta_n = n; }
@@ -144,7 +143,7 @@ window.processUnifiedBulkAdd = async function() {
                 });
             } else {
                 sObj.sit_c = s5.trim();
-                sObj.sit_n = "⚠️ 표 데이터 인식 실패. AI에게 마크다운 표 출력을 요청하세요.";
+                sObj.sit_n = "⚠️ 표 데이터 인식 실패. AI에게 표 출력을 요청하세요.";
             }
 
             if (sObj.sit_c || sObj.pri_c || sObj.sta_c || sObj.pnt_c) {
@@ -154,26 +153,24 @@ window.processUnifiedBulkAdd = async function() {
             }
         }
 
-        // 🚨 [6] 다단 비교표 (Smart Bypass 적용)
+        // 🚨 [6] 다단 비교표 (범용 파서 적용 + 무한 칸 지원)
         if (s6) {
             let cObj = { title:'다단 비교표', category:'미분류', headers:[], matrix:[] };
-            let dataRows = parseMarkdownTable(s6);
+            let dataRows = parseUniversalTable(s6);
 
-            // 💡 정상적인 표가 아니면 그때만 심폐소생술 시도
             if (dataRows.length < 2) {
                 let s6Clean = s6.replace(/[-=|]{3,}/g, '');
-                // 엔터(\n)를 뛰어넘지 못하게 [ \t]* 사용! QRS 폭은 안전하게 보호!
                 s6Clean = s6Clean.replace(/(J|s|초|점|\)|에너지|여부|규칙성|적|음|조동|세동|빈맥)[ \t]*([가-힣A-Z])/g, (m,p1,p2) => {
                     if(p1.toUpperCase() === 'S' && p2 === '폭') return m;
-                    return p1 + ' |\n' + p2;
+                    return p1 + '\n' + p2;
                 });
-                dataRows = parseMarkdownTable(s6Clean);
+                dataRows = parseUniversalTable(s6Clean);
             }
 
             if (dataRows.length > 0) {
-                cObj.headers = dataRows.shift(); // 첫 줄은 5칸이든 10칸이든 무조건 헤더 배열로 통째로 저장
+                cObj.headers = dataRows.shift(); // 첫 줄 무조건 헤더 추출
                 dataRows.forEach(dr => {
-                    cObj.matrix.push({ items: dr }); // 남은 데이터도 무한정 배열로 저장
+                    cObj.matrix.push({ items: dr }); // 나머지 데이터 무한정 저장
                 });
             } else {
                 cObj.headers = ['비교 항목', '내용']; 
@@ -184,8 +181,9 @@ window.processUnifiedBulkAdd = async function() {
             counts.c++;
         }
 
+        // 🚨 [7] 일반 노트 (2.4 찌꺼기 완벽 청소)
         if (s7) {
-            let nContent = s7.replace(/^[\d\.\s]+/, ''); // 2.4 찌꺼기 청소
+            let nContent = s7.replace(/^[\s\S]*?(?=\[PHASE)/i, ''); // [PHASE 가 나오기 전의 모든 텍스트(예: 2.4) 증발!
             nContent = nContent.replace(/(\[PHASE|코드:|해설:|그림|포인트:|1층:|2층:|3층:|작은 바구니|중간 바구니|큰 바구니)/g, '\n\n$1');
             await db.collection('subjects').doc(window.currentSubjectId).collection('notes').add({ category:'미분류', title:'학습 데이터 프로토콜', content: nContent.trim(), createdAt:ts, updatedAt:ts });
             counts.n++;
