@@ -1,15 +1,15 @@
 // =========================================================
-// [v25.0.0] app-parser.js: The Final Masterpiece
-// (Tab(\t) Support, Hyphen Path Separation, Dynamic Row Mapping)
+// [v28.0.0] app-parser.js: Path Hyphen Fix & Dynamic Table Mapping
 // =========================================================
 
-window.showBulkAddModal = function() { 
+window.showBulkAddModal = function() {
     const m = document.getElementById('modal-container'); if(!m) return;
     m.innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"></div>
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (최종 진화형)</h2>
-            <p style="color:#64748b; margin-bottom:10px;">웹에서 드래그한 표(탭 기호)와 마크다운(| 기호)을 모두 100% 완벽하게 인식합니다.</p>
+            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (그라이스 격률 최종)</h2>
+            <p style="color:#64748b; margin-bottom:10px;">모호한 유추를 버리고, <b>명료하고 있는 그대로의 데이터</b>만 완벽하게 분리합니다.</p>
+            <p style="color:#ef4444; font-size:0.95em; font-weight:bold; background:#fee2e2; padding:10px; border-radius:8px;">🚨 붙여넣기 팁: 사례/비교표가 깨진다면 AI에게 "반드시 | 기호로 구분된 마크다운 표로 출력해줘"라고 요청하세요!</p>
         </div>
         <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 통째로 붙여넣으세요..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
@@ -27,7 +27,6 @@ window.processUnifiedBulkAdd = async function() {
     window.showLoading();
 
     try {
-        // 1. 대분류 구조 강제 복원 (떡진 텍스트 도려내기)
         text = text.replace(/([^\n])([\[(]?1[\])]?\.?\s*(?:정답\s*및\s*)?핵심\s*리마인드)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?2[\])]?\.?\s*실전\s*대비)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?3[\])]?\.?\s*지식\s*재구성)/i, '$1\n$2');
@@ -58,10 +57,8 @@ window.processUnifiedBulkAdd = async function() {
         const ts = firebase.firestore.FieldValue.serverTimestamp();
         let counts = {q:0, r:0, c:0, n:0, v:0, s:0};
 
-        // [1] 핵심 리마인드
         let coreRemind = s1.replace(/\[.*?\]/g, '').replace(/정답은.*?(입니다|다\.)/i, '').replace(/핵심\s*리마인드[:\s]*/i, '').trim();
 
-        // 🚨 [2] 퀴즈 추출 (목차 하이픈 인식 완벽 패치!)
         if (s2 || coreRemind) {
             let qObj = { category:'미분류', negativeType:'', text:'', answer:'', shortExplanation:'', explanation:'', options:[], optionImages:['','','','',''], images:[], pathLevels:[], bookmarked:false, coreRemind: coreRemind };
 
@@ -77,7 +74,6 @@ window.processUnifiedBulkAdd = async function() {
                 if (!startMatch) { qData[qKeys[i].k] = ''; continue; }
                 let startIndex = startMatch.index + startMatch[0].length;
                 let subText = s2.substring(startIndex);
-
                 let closest = subText.length;
                 for (let j = 0; j < qKeys.length; j++) {
                     if (i === j) continue;
@@ -98,9 +94,9 @@ window.processUnifiedBulkAdd = async function() {
             if(qData.short) qObj.shortExplanation = qData.short;
             if(qData.exp) qObj.explanation = qData.exp;
             
-            // 🚨 하이픈( - ) 구분자를 정규식에 완벽 추가!
+            // 🚨 목차 정보 추출 (하이픈 '-' 완벽 분리, 슬래시는 찢지 않음)
             if(qData.path) {
-                 qObj.pathLevels = qData.path.split(/\n|,|단계:|->|➔|\s+-\s+|\s*>\s*|\//).map(s=>s.trim().replace(/^\d+\s*/,'')).filter(Boolean);
+                 qObj.pathLevels = qData.path.split(/(?:\s+-\s+|\s*>\s*|➔|->|\n|단계:)/).map(s=>s.trim().replace(/^\d+\s*/,'')).filter(Boolean);
             }
 
             if(!qObj.text) qObj.text = "질문 내용 없음 (스마트 주입)";
@@ -109,7 +105,6 @@ window.processUnifiedBulkAdd = async function() {
             counts.q++;
         }
 
-        // [3] 지식 재구성
         if (s3) {
             let rObj = { title:'새 지식 재구성', category:'미분류', mnemonic:'', mnemonicDesc:'', knowledgeNetwork:'', diagramFormula:'', keywords:[], tags:[] };
             
@@ -124,7 +119,6 @@ window.processUnifiedBulkAdd = async function() {
                 if (!startMatch) { rData[rKeys[i].k] = ''; continue; }
                 let startIndex = startMatch.index + startMatch[0].length;
                 let subText = s3.substring(startIndex);
-                
                 let closest = subText.length;
                 for (let j = 0; j < rKeys.length; j++) {
                     if (i === j) continue;
@@ -146,36 +140,36 @@ window.processUnifiedBulkAdd = async function() {
             counts.r++;
         }
 
-        // [4] 시각적 구조화 가독성 복원
         if (s4) {
             let vContent = s4.replace(/(🗺️|⭕|중심 노드|좁은 QRS|넓은 QRS|기기 특성|교집합|일반 성인|임신부 영역|규칙적|불규칙적|좁규|넓규)/g, '\n\n$1');
             await db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').add({ category:'미분류', title:'시각적 구조화', content: vContent.trim(), createdAt:ts, updatedAt:ts });
             counts.v++;
         }
 
-        // 🚨 [5] 사례 분석 (탭 \t 완벽 지원 & 동적 키워드 매핑)
+        // 🚨 [5] 사례 분석 (표의 첫번째 칸 내용으로 유연하게 자리 찾기)
         if (s5) {
             let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
-            let lines = s5.split('\n');
+            let tableLines = s5.split('\n').filter(l => l.includes('|'));
             let dataRows = [];
 
-            lines.forEach(l => {
-                if (l.match(/---|===/)) return;
-                // | (파이프) 또는 \t (탭) 기호로 칸을 분리합니다. 웹에서 드래그한 표는 \t로 분리됩니다!
-                let cols = l.split(/\||\t/).map(s=>s.trim()).filter(Boolean);
-                if (cols.length >= 2 && !cols.join('').includes('구분') && !cols.join('').includes('구체적 사례')) {
-                    dataRows.push(cols);
-                }
+            tableLines.forEach(l => {
+                if (l.replace(/\s+/g,'').includes('---|')) return;
+                let cols = l.split('|').map(s=>s.trim());
+                if(cols[0] === '') cols.shift(); if(cols[cols.length-1] === '') cols.pop();
+                if(!cols.join('').includes('구분') && !cols.join('').includes('구체적 사례')) { dataRows.push(cols); }
             });
 
-            if (dataRows.length > 0) {
-                // 순서에 집착하지 않고 첫 번째 칸의 단어를 보고 자기 자리를 찾아갑니다!
+            if(dataRows.length > 0) {
+                // 표의 순서가 아니라 '첫 번째 칸의 단어'를 보고 자리를 매핑합니다.
                 dataRows.forEach(row => {
-                    let k = row[0].replace(/\s+/g,'');
+                    let k = (row[0] || '').replace(/\s+/g,'');
                     let c = row[1] || ''; let n = row[2] || '';
+                    if(['없음','공백','-','해당없음'].includes(c.replace(/\s+/g,''))) c = '';
+                    if(['없음','공백','-','해당없음'].includes(n.replace(/\s+/g,''))) n = '';
+
                     if (k.includes('상황')) { sObj.sit_c = c; sObj.sit_n = n; }
-                    else if (k.includes('원리')||k.includes('진단')||k.includes('설정')||k.includes('에너지')||k.includes('판단')||k.includes('근거')) { sObj.pri_c = c; sObj.pri_n = n; }
-                    else if (k.includes('상태')||k.includes('처치')||k.includes('결과')||k.includes('이유')) { sObj.sta_c = c; sObj.sta_n = n; }
+                    else if (k.includes('원리')||k.includes('진단')||k.includes('설정')||k.includes('판단')||k.includes('에너지')) { sObj.pri_c = c; sObj.pri_n = n; }
+                    else if (k.includes('상태')||k.includes('처치')||k.includes('결과')||k.includes('이유')||k.includes('근거')) { sObj.sta_c = c; sObj.sta_n = n; }
                     else if (k.includes('포인트')) { sObj.pnt_c = c; sObj.pnt_n = n; }
                 });
             } else {
@@ -190,43 +184,39 @@ window.processUnifiedBulkAdd = async function() {
             }
         }
 
-        // 🚨 [6] 다단 비교표 (탭 \t 완벽 지원)
         if (s6) {
             let cObj = { title:'다단 비교표', category:'미분류', col1Name:'', col2Name:'', col3Name:'', col4Name:'', rows:[] };
-            let lines = s6.split('\n');
+            let tableLines = s6.split('\n').filter(l => l.includes('|'));
             let dataRows = [];
             
-            lines.forEach(l => {
-                if (l.match(/---|===/)) return;
-                // | 또는 탭(\t) 분리
-                let cols = l.split(/\||\t/).map(s=>s.trim()).filter(Boolean);
-                if (cols.length >= 2) {
-                    dataRows.push(cols);
-                }
+            tableLines.forEach(l => {
+                if (l.replace(/\s+/g,'').includes('---|') || l.replace(/\s+/g,'').includes('===')) return;
+                let cols = l.split('|').map(s=>s.trim());
+                if(cols[0] === '') cols.shift(); if(cols[cols.length-1] === '') cols.pop();
+                dataRows.push(cols);
             });
 
             if (dataRows.length > 0) {
-                let headers = dataRows.shift(); // 무조건 첫 줄을 헤더로 삼습니다!
-                cObj.col1Name = headers[0] || '항목1';
-                cObj.col2Name = headers[1] || '항목2';
-                cObj.col3Name = headers[2] || '';
-                cObj.col4Name = headers[3] || '';
+                let headers = dataRows.shift();
+                cObj.col1Name = headers[0] || '항목1'; cObj.col2Name = headers[1] || '항목2';
+                cObj.col3Name = headers[2] || ''; cObj.col4Name = headers[3] || '';
 
                 dataRows.forEach(dr => {
-                    cObj.rows.push({
-                        col1: dr[0] || '-', col2: dr[1] || '-', col3: dr[2] || '', col4: dr[3] || ''
-                    });
+                    let c1 = dr[0]||'-'; let c2 = dr[1]||'-';
+                    if(['없음','공백'].includes(c1.replace(/\s+/g,''))) c1 = '-';
+                    if(['없음','공백'].includes(c2.replace(/\s+/g,''))) c2 = '-';
+                    cObj.rows.push({ col1: c1, col2: c2, col3: dr[2]||'', col4: dr[3]||'' });
                 });
+            } else {
+                 cObj.col1Name = '비교 항목'; cObj.col2Name = '내용';
+                 cObj.rows.push({col1: '⚠️ 표 깨짐', col2: 'AI에게 마크다운 표 출력을 요청하세요.', col3:'', col4:''});
             }
 
-            if (cObj.rows.length > 0) {
-                cObj.createdAt = ts; cObj.updatedAt = ts;
-                await db.collection('subjects').doc(window.currentSubjectId).collection('comparisons').add(cObj);
-                counts.c++;
-            }
+            cObj.createdAt = ts; cObj.updatedAt = ts;
+            await db.collection('subjects').doc(window.currentSubjectId).collection('comparisons').add(cObj);
+            counts.c++;
         }
 
-        // [7] 일반 노트 가독성 복원
         if (s7) {
             let nContent = s7.replace(/(\[PHASE|코드:|해설:|그림|포인트:|1층:|2층:|3층:|작은 바구니|중간 바구니|큰 바구니)/g, '\n\n$1');
             await db.collection('subjects').doc(window.currentSubjectId).collection('notes').add({ category:'미분류', title:'학습 데이터 프로토콜', content: nContent.trim(), createdAt:ts, updatedAt:ts });
@@ -236,7 +226,7 @@ window.processUnifiedBulkAdd = async function() {
         window.hideLoading(); window.closeModal(); 
         if (window.currentSubjectId && typeof window.manageSubject === 'function') window.manageSubject(window.currentSubjectId);
         
-        alert(`✨ 제1원칙 퀀텀 주입 완벽 성공!\n✅ 퀴즈/재구성(리마인드 포함): ${counts.q}건\n🧠 재구성(DB): ${counts.r}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 일반노트: ${counts.n}건`);
+        alert(`✨ 그라이스 격률 2.0 스마트 주입 성공!\n✅ 퀴즈: ${counts.q}건\n🧠 재구성: ${counts.r}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 수업노트: ${counts.n}건`);
 
     } catch(err) {
         window.hideLoading(); console.error(err); alert("🚨 파싱 오류: " + err.message);
