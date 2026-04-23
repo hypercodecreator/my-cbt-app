@@ -1,5 +1,6 @@
 // =========================================================
-// [v39.0.0] app-parser.js: LaTeX Cleaner & Absolute Row Splitter
+// [v40.0.0] app-parser.js: Ultimate Heuristic Resuscitation
+// (Force-splits entirely squashed text without tabs or pipes)
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -7,8 +8,8 @@ window.showBulkAddModal = function() {
     m.innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"></div>
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (무적의 범용 추출)</h2>
-            <p style="color:#64748b; margin-bottom:10px;">마크다운 선(---)이 없어도, 표 형태만 유지되어 있으면 100% 흡수합니다.</p>
+            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (휴리스틱 소생술)</h2>
+            <p style="color:#64748b; margin-bottom:10px;">복사 시 표 서식(|, 탭, 엔터)이 100% 날아가 떡져 있어도 강제로 뼈대를 세웁니다.</p>
         </div>
         <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 통째로 붙여넣으세요..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
@@ -76,7 +77,6 @@ window.processUnifiedBulkAdd = async function() {
             await db.collection('subjects').doc(window.currentSubjectId).collection('questions').add(qObj); counts.q++;
         }
 
-        // 🚨 [3] 지식 재구성 (LaTeX 수식 클리너 도입)
         if (s3) {
             let rObj = { title:'새 지식 재구성', category:'미분류', mnemonic:'', mnemonicDesc:'', knowledgeNetwork:'', diagramFormula:'', keywords:[], tags:[] };
             const rKeys = [{ k: 'mne', r: /암기\s*코드[:\s]*/i }, { k: 'mneD', r: /해석\s*및\s*풀이[:\s]*/i }, { k: 'knR', r: /지식\s*연결망[:\s]*/i }, { k: 'diag', r: /도식\s*및\s*핵심\s*(?:공식|원리)[:\s]*/i }, { k: 'kw', r: /키워드[:\s]*/i }, { k: 'tg', r: /태그[:\s]*/i }];
@@ -87,29 +87,23 @@ window.processUnifiedBulkAdd = async function() {
                 for (let j = 0; j < rKeys.length; j++) { if (i === j) continue; let m2 = subText.match(rKeys[j].r); if (m2 && m2.index < closest) closest = m2.index; }
                 rData[rKeys[i].k] = subText.substring(0, closest).trim();
             }
-            
-            if(rData.mne) rObj.mnemonic = rData.mne; 
-            if(rData.mneD) rObj.mnemonicDesc = rData.mneD; 
-            if(rData.knR) rObj.knowledgeNetwork = rData.knR; 
-            
-            // 💡 지저분한 수학 기호($ \text 등)를 깔끔한 평문으로 세탁!
+            if(rData.mne) rObj.mnemonic = rData.mne; if(rData.mneD) rObj.mnemonicDesc = rData.mneD; if(rData.knR) rObj.knowledgeNetwork = rData.knR; 
             if(rData.diag) {
                 let cleanDiag = rData.diag.replace(/\$/g, '').replace(/\\text\{([^}]+)\}/g, '$1').replace(/\\[a-zA-Z]+/g, '').replace(/[\{\}]/g, '');
                 rObj.diagramFormula = cleanDiag;
             }
-            
             if(rData.kw) { rObj.keywords = rData.kw.replace(/#/g,'').split(/[,|/]+|\s+/).map(s=>s.trim()).filter(Boolean); if(rObj.keywords.length>0) rObj.title = rObj.keywords[0] + ' 지식 재구성'; }
             if(rData.tg) rObj.tags = rData.tg.replace(/#/g,'').split(/[,|/]+|\s+/).map(s=>s.trim()).filter(Boolean);
             rObj.createdAt = ts; rObj.updatedAt = ts; await db.collection('subjects').doc(window.currentSubjectId).collection('reconstructions').add(rObj); counts.r++;
         }
 
         if (s4) {
-            let vContent = s4.replace(/(🗺️|⭕|중심 노드|좁은 QRS|넓은 QRS|기기 특성|교집합|일반 성인|임신부 영역|규칙적|불규칙적|좁규|넓규)/g, '\n\n$1');
+            // 시각적 구조화 가독성 강화: 엔터 누락 복구
+            let vContent = s4.replace(/(🗺️|⭕)/g, '\n\n$1');
             await db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').add({ category:'미분류', title:'시각적 구조화', content: vContent.trim(), createdAt:ts, updatedAt:ts });
             counts.v++;
         }
 
-        // 🧠 절대 무적 범용 표 파서 엔진
         const parseAbsoluteTable = (textBlock) => {
             let lines = textBlock.split('\n');
             let rows = [];
@@ -125,26 +119,37 @@ window.processUnifiedBulkAdd = async function() {
             return rows;
         };
 
-        // 🚨 [5] 사례 분석 (설정함이유 떡짐 완전 파괴!)
+        // 🚨 [5] 사례 분석: 극한의 떡짐(상태, 원인, 처치) 강제 파쇄
         if (s5) {
             let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
             let s5Clean = s5.replace(/[-=|]{3,}/g, '');
             
-            // 💡 "설정함이유" 처럼 완전히 붙어버린 문장을 강제로 찢어 엔터 삽입!
-            s5Clean = s5Clean.replace(/([^\n])\s*(상황|작용\s*원리|에너지\s*설정|판단\s*근거|이유|생리적\s*상태|처치|결과|학습\s*포인트)\s*\|/g, '$1\n$2 |');
+            // 탭도 파이프도 아예 없으면? 강제로 행 분리용 | 와 엔터를 때려 박음!
+            if(!s5Clean.includes('|') && !s5Clean.includes('\t')) {
+                s5Clean = s5Clean.replace(/(상태|상황|원인|작용\s*원리|에너지\s*설정|처치|생리적\s*상태|학습\s*포인트|판단\s*근거|이유)/g, '\n$1 |');
+            } else {
+                s5Clean = s5Clean.replace(/([^\n|])\s*(상태|상황|작용\s*원리|에너지\s*설정|원인|처치|판단\s*근거|생리적\s*상태|학습\s*포인트)\s*(?:\||\t)?/g, '$1 \n$2 |');
+            }
             
             let dataRows = parseAbsoluteTable(s5Clean);
 
             if (dataRows.length > 0) {
-                // 머리글(구분)을 제외한 순수 4줄만 배열로 추출하여 순서대로 꽂아 넣음!
-                let pureData = dataRows.filter(row => !row.join('').includes('구분') && !row.join('').includes('구체적 사례'));
-                if(pureData.length >= 1) { sObj.sit_c = pureData[0][1]||''; sObj.sit_n = pureData[0][2]||''; }
-                if(pureData.length >= 2) { sObj.pri_c = pureData[1][1]||''; sObj.pri_n = pureData[1][2]||''; }
-                if(pureData.length >= 3) { sObj.sta_c = pureData[2][1]||''; sObj.sta_n = pureData[2][2]||''; }
-                if(pureData.length >= 4) { sObj.pnt_c = pureData[3][1]||''; sObj.pnt_n = pureData[3][2]||''; }
+                dataRows.forEach(row => {
+                    let k = (row[0] || '').replace(/\s+/g,'');
+                    if(k.includes('구분') || k.includes('구체적사례')) return; 
+                    let c = row[1] || ''; let n = row[2] || '';
+                    if(['없음','공백','-','해당없음'].includes(c.replace(/\s+/g,''))) c = '';
+                    if(['없음','공백','-','해당없음'].includes(n.replace(/\s+/g,''))) n = '';
+
+                    // 원인, 상태, 처치 등 새로운 키워드 추가 대응
+                    if (k.match(/상황|상태/)) { sObj.sit_c = c; sObj.sit_n = n; }
+                    else if (k.match(/원리|진단|설정|에너지|작동|원인/)) { sObj.pri_c = c; sObj.pri_n = n; }
+                    else if (k.match(/처치|결과|이유|근거|판단|생리적/)) { sObj.sta_c = c; sObj.sta_n = n; }
+                    else if (k.match(/포인트/)) { sObj.pnt_c = c; sObj.pnt_n = n; }
+                });
             } else {
                 sObj.sit_c = s5.trim();
-                sObj.sit_n = "⚠️ 표 데이터 인식 실패. AI에게 마크다운 표 출력을 요청하세요.";
+                sObj.sit_n = "⚠️ 완전히 뭉개진 텍스트입니다. 행 구분이 실패했습니다.";
             }
 
             if (sObj.sit_c || sObj.pri_c || sObj.sta_c || sObj.pnt_c) {
@@ -154,9 +159,23 @@ window.processUnifiedBulkAdd = async function() {
             }
         }
 
+        // 🚨 [6] 다단 비교표: 극한의 떡짐 강제 파쇄
         if (s6) {
             let cObj = { title:'다단 비교표', category:'미분류', headers:[], matrix:[] };
-            let dataRows = parseAbsoluteTable(s6);
+            let s6Clean = s6.replace(/[-=|]{3,}/g, '');
+            
+            // 탭과 파이프가 전멸했다면 행 제목 기준으로 강제 절단!
+            if(!s6Clean.includes('|') && !s6Clean.includes('\t')) {
+                s6Clean = s6Clean.replace(/(QRS 모양|주요 원인|시각적 특징|리듬 형태|QRS 폭|규칙성|이상파형|단상파형|비교 항목)/g, '\n$1 |');
+            } else {
+                s6Clean = s6Clean.replace(/(J|s|초|점|\)|에너지|여부|규칙성|적|음|조동|세동|빈맥|모양|원인|특징)\s*([가-힣A-Z])/g, (m,p1,p2) => {
+                    if(p1.toUpperCase() === 'S' && p2 === '폭') return m;
+                    return p1 + ' |\n' + p2;
+                });
+            }
+
+            let dataRows = parseAbsoluteTable(s6Clean);
+
             if (dataRows.length > 0) {
                 cObj.headers = dataRows.shift();
                 dataRows.forEach(dr => { cObj.matrix.push({ items: dr }); });
@@ -170,7 +189,8 @@ window.processUnifiedBulkAdd = async function() {
         }
 
         if (s7) {
-            let nContent = s7.replace(/^[\s\S]*?(?=\[PHASE)/i, '');
+            let nContent = s7.replace(/^[\s\S]*?(?=\[PHASE)/i, ''); 
+            nContent = nContent.replace(/(\[PHASE|코드:|해설:|그림|포인트:|1층:|2층:|3층:|작은 바구니|중간 바구니|큰 바구니)/g, '\n\n$1');
             await db.collection('subjects').doc(window.currentSubjectId).collection('notes').add({ category:'미분류', title:'학습 데이터 프로토콜', content: nContent.trim(), createdAt:ts, updatedAt:ts });
             counts.n++;
         }
@@ -178,7 +198,7 @@ window.processUnifiedBulkAdd = async function() {
         window.hideLoading(); window.closeModal(); 
         if (window.currentSubjectId && typeof window.manageSubject === 'function') window.manageSubject(window.currentSubjectId);
         
-        alert(`✨ 무결점 퀀텀 주입 완벽 성공!\n✅ 퀴즈: ${counts.q}건\n🧠 재구성: ${counts.r}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 수업노트: ${counts.n}건`);
+        alert(`✨ 극한의 떡짐 복원 성공!\n✅ 퀴즈: ${counts.q}건\n🧠 재구성: ${counts.r}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 수업노트: ${counts.n}건`);
 
     } catch(err) {
         window.hideLoading(); console.error(err); alert("🚨 파싱 오류: " + err.message);
