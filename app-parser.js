@@ -1,6 +1,6 @@
 // =========================================================
-// [v29.0.0] app-parser.js: Table Resuscitation Engine
-// (Destroys ---| separators first, forceful newline injection)
+// [v29.0.0] app-parser.js: True First Principles Parser
+// (Sequential Row Mapping, N-Column Table Merging)
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -8,8 +8,8 @@ window.showBulkAddModal = function() {
     m.innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"></div>
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (표 심폐소생술 적용)</h2>
-            <p style="color:#64748b; margin-bottom:10px;">표의 줄바꿈이 다 날아가서 한 줄로 떡져 있어도 완벽하게 쪼개어 살려냅니다.</p>
+            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (최종 진화형)</h2>
+            <p style="color:#64748b; margin-bottom:10px;">표의 단어나 열 개수가 달라도 <b>구조와 순서</b>를 기반으로 완벽하게 삽입합니다.</p>
         </div>
         <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 통째로 붙여넣으세요..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
@@ -93,7 +93,7 @@ window.processUnifiedBulkAdd = async function() {
             }
             if(qData.short) qObj.shortExplanation = qData.short;
             if(qData.exp) qObj.explanation = qData.exp;
-            if(qData.path) qObj.pathLevels = qData.path.split(/\s*[-–—➔>]\s*|\n|단계:/).map(s=>s.trim().replace(/^\d+\s*/,'')).filter(Boolean);
+            if(qData.path) qObj.pathLevels = qData.path.split(/(?:\s+-\s+|\s*>\s*|➔|->|\n|단계:)/).map(s=>s.trim().replace(/^\d+\s*/,'')).filter(Boolean);
 
             if(!qObj.text) qObj.text = "질문 내용 없음 (스마트 주입)";
             qObj.createdAt = ts; qObj.updatedAt = ts;
@@ -142,41 +142,28 @@ window.processUnifiedBulkAdd = async function() {
             counts.v++;
         }
 
-        // 🚨 [5] 사례 분석 (심폐소생술 적용: 마크다운 선 제거 & 강제 줄바꿈)
+        // 🚨 [5] 사례 분석: 단어 스캔 완전 폐기! 무조건 순서대로 맵핑 (1원칙)
         if (s5) {
             let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
-            
-            // 1. 치명적 버그 원인인 ---|---|--- 등 마크다운 구분선 완전 파괴
-            let s5Clean = s5.replace(/[-=|]{3,}/g, '');
-            
-            // 2. 한 줄로 떡진 텍스트의 '제목' 앞부분에 무조건 엔터(\n) 주입!
-            s5Clean = s5Clean.replace(/([^\n])(상황|작용\s*원리|에너지\s*설정|판단\s*근거|생리적\s*상태|학습\s*포인트)\s*\|/g, '$1\n$2 |');
-
-            let tableLines = s5Clean.split('\n').filter(l => l.includes('|'));
+            let tableLines = s5.split('\n').filter(l => l.includes('|'));
             let dataRows = [];
 
             tableLines.forEach(l => {
+                if (l.replace(/\s+/g,'').includes('---|')) return;
                 let cols = l.split('|').map(s=>s.trim());
-                if(cols.length < 2) return;
                 if(cols[0] === '') cols.shift(); if(cols[cols.length-1] === '') cols.pop();
                 if(!cols.join('').includes('구분') && !cols.join('').includes('구체적 사례')) { dataRows.push(cols); }
             });
 
             if(dataRows.length > 0) {
-                dataRows.forEach(row => {
-                    let k = (row[0] || '').replace(/\s+/g,'');
-                    let c = row[1] || ''; let n = row[2] || '';
-                    if(['없음','공백','-','해당없음'].includes(c.replace(/\s+/g,''))) c = '';
-                    if(['없음','공백','-','해당없음'].includes(n.replace(/\s+/g,''))) n = '';
-
-                    if (k.includes('상황')) { sObj.sit_c = c; sObj.sit_n = n; }
-                    else if (k.includes('원리')||k.includes('진단')||k.includes('설정')||k.includes('판단')||k.includes('에너지')) { sObj.pri_c = c; sObj.pri_n = n; }
-                    else if (k.includes('상태')||k.includes('처치')||k.includes('결과')||k.includes('이유')||k.includes('근거')) { sObj.sta_c = c; sObj.sta_n = n; }
-                    else if (k.includes('포인트')) { sObj.pnt_c = c; sObj.pnt_n = n; }
-                });
+                // 표의 단어가 뭐든 상관없이 1번째 줄은 상황, 2번째 줄은 원리, 3번째는 상태, 4번째는 포인트로 강제 삽입!
+                if(dataRows[0]) { sObj.sit_c = dataRows[0][1]||''; sObj.sit_n = dataRows[0][2]||''; }
+                if(dataRows[1]) { sObj.pri_c = dataRows[1][1]||''; sObj.pri_n = dataRows[1][2]||''; }
+                if(dataRows[2]) { sObj.sta_c = dataRows[2][1]||''; sObj.sta_n = dataRows[2][2]||''; }
+                if(dataRows[3]) { sObj.pnt_c = dataRows[3][1]||''; sObj.pnt_n = dataRows[3][2]||''; }
             } else {
                 sObj.sit_c = s5.trim();
-                sObj.sit_n = "⚠️ 표 데이터가 인식되지 않았습니다.";
+                sObj.sit_n = "⚠️ AI에게 마크다운 표(| 구분)로 출력을 요청하세요.";
             }
 
             if (sObj.sit_c || sObj.pri_c || sObj.sta_c || sObj.pnt_c) {
@@ -186,43 +173,35 @@ window.processUnifiedBulkAdd = async function() {
             }
         }
 
-        // 🚨 [6] 다단 비교표 (심폐소생술 적용)
+        // 🚨 [6] 다단 비교표: 5칸짜리 표가 들어오면 뒷부분을 묶어버리는 퀀텀 병합!
         if (s6) {
             let cObj = { title:'다단 비교표', category:'미분류', col1Name:'', col2Name:'', col3Name:'', col4Name:'', rows:[] };
-            
-            // 1. 치명적 버그 원인 마크다운 선 완전 파괴
-            let s6Clean = s6.replace(/[-=|]{3,}/g, '');
-            
-            // 2. 끝단어(단위 등)와 시작단어(리듬 등)가 떡진 부분에 엔터(\n) 주입! (예: 200 J심방세동 -> 200 J\n심방세동)
-            s6Clean = s6Clean.replace(/(J|s|초|점|\)|에너지|여부|규칙성|적|음|파형|조동|세동|빈맥)\s*(PSVT|심방|심실|정상|비정상|동성|단형|다형|[가-힣A-Z])/g, (match, p1, p2) => {
-                if(p1 === 'S' && p2 === '폭') return match; // QRS 폭은 예외 보존
-                return p1 + '\n' + p2;
-            });
-
-            let tableLines = s6Clean.split('\n').filter(l => l.includes('|'));
+            let tableLines = s6.split('\n').filter(l => l.includes('|'));
             let dataRows = [];
             
             tableLines.forEach(l => {
+                if (l.replace(/\s+/g,'').includes('---|') || l.replace(/\s+/g,'').includes('===')) return;
                 let cols = l.split('|').map(s=>s.trim());
-                if(cols.length < 2) return;
                 if(cols[0] === '') cols.shift(); if(cols[cols.length-1] === '') cols.pop();
                 dataRows.push(cols);
             });
 
             if (dataRows.length > 0) {
                 let headers = dataRows.shift();
-                cObj.col1Name = headers[0] || '항목1'; cObj.col2Name = headers[1] || '항목2';
-                cObj.col3Name = headers[2] || ''; cObj.col4Name = headers[3] || '';
+                cObj.col1Name = headers[0] || '항목1';
+                cObj.col2Name = headers[1] || '항목2';
+                cObj.col3Name = headers[2] || '';
+                // 핵심: 4번째 칸 이후에 칸이 더 있으면 다 합쳐서 (/) 4번째 칸에 넣음!
+                cObj.col4Name = headers.slice(3).join(' / ') || ''; 
 
                 dataRows.forEach(dr => {
-                    let c1 = dr[0]||'-'; let c2 = dr[1]||'-';
-                    if(['없음','공백'].includes(c1.replace(/\s+/g,''))) c1 = '-';
-                    if(['없음','공백'].includes(c2.replace(/\s+/g,''))) c2 = '-';
-                    cObj.rows.push({ col1: c1, col2: c2, col3: dr[2]||'', col4: dr[3]||'' });
+                    let c1 = dr[0]||'-'; let c2 = dr[1]||'-'; let c3 = dr[2]||'';
+                    let c4 = dr.slice(3).join(' / ') || ''; // 데이터도 다 합침!
+                    cObj.rows.push({ col1: c1, col2: c2, col3: c3, col4: c4 });
                 });
             } else {
                  cObj.col1Name = '비교 항목'; cObj.col2Name = '내용';
-                 cObj.rows.push({col1: '⚠️ 표 깨짐', col2: '데이터 복원 실패', col3:'', col4:''});
+                 cObj.rows.push({col1: '⚠️ 표 깨짐', col2: 'AI에게 마크다운 표 출력을 요청하세요.', col3:'', col4:''});
             }
 
             cObj.createdAt = ts; cObj.updatedAt = ts;
@@ -239,7 +218,7 @@ window.processUnifiedBulkAdd = async function() {
         window.hideLoading(); window.closeModal(); 
         if (window.currentSubjectId && typeof window.manageSubject === 'function') window.manageSubject(window.currentSubjectId);
         
-        alert(`✨ 퀀텀 주입 완벽 성공!\n✅ 퀴즈: ${counts.q}건\n🧠 재구성: ${counts.r}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 수업노트: ${counts.n}건`);
+        alert(`✨ 퀀텀 구조 주입 완벽 성공!\n✅ 퀴즈: ${counts.q}건\n🧠 재구성: ${counts.r}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 수업노트: ${counts.n}건`);
 
     } catch(err) {
         window.hideLoading(); console.error(err); alert("🚨 파싱 오류: " + err.message);
