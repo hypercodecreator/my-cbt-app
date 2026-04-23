@@ -1,5 +1,5 @@
 // =========================================================
-// [v27.0.0] app-ext.js: Quick Review (모아보기) Feature Added
+// [v28.0.0] app-ext.js: Quick Review UI Guarantee & Fixes
 // =========================================================
 
 window.showView = function(id) {
@@ -10,25 +10,27 @@ window.showView = function(id) {
 
 window.renderManagementView = function() {
     window.showView('management-view');
-    document.getElementById('management-view').innerHTML = `<div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;"><h2>[${window.currentSubjectData.name}] 지식 관리</h2><div style="display:flex; gap:8px; flex-wrap:wrap;">
+    document.getElementById('management-view').innerHTML = `
+    <div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h2>[${window.currentSubjectData.name}] 지식 관리</h2>
+        <button class="button primary-button" style="background:#1e293b; color:white; border:none; padding:12px 20px; font-size:1.1em; font-weight:bold; border-radius:30px; box-shadow:0 4px 10px rgba(0,0,0,0.2);" onclick="window.openReviewManager()">🔍 통합 모아보기 (빠른 복습)</button>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:15px;">
         <button class="button small-button" style="background:#f59e0b; color:white; border:none;" onclick="window.openReconstructionManager()">🧠 지식 재구성</button>
         <button class="button small-button" style="background:#0284c7; color:white; border:none;" onclick="window.openVisualMapManager()">🗺️ 시각적 구조화</button>
         <button class="button small-button" style="background:#ea580c; color:white; border:none;" onclick="window.openCaseStudyManager()">⚖️ 사례 분석 & 비사례</button>
         <button class="button small-button" style="background:#8b5cf6; color:white; border:none;" onclick="window.openComparisonManager()">📊 다단 비교표</button> 
         <button class="button small-button" style="background:#10b981; color:white; border:none;" onclick="window.openNoteManager()">📚 수업 노트</button>
-    </div></div>
-    <div style="background:#f8fafc; padding:15px; border-radius:12px; margin-bottom:15px; display:flex; gap:10px; flex-wrap:wrap;"><button class="button small-button light-button" onclick="window.selectAll(true)">전체 선택</button><button class="button small-button light-button" onclick="window.selectAll(false)">해제</button><button class="button small-button" style="background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe;" onclick="window.copySelected()">선택 복사</button><button class="button small-button" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;" onclick="window.deleteSelected()">선택 삭제</button><button class="button small-button primary-button" style="background:#8b5cf6; border:none;" onclick="window.toggleInlineCreateUI('questions')">+ 새 폴더 생성</button><div style="flex:1;"></div><button class="button small-button primary-button" onclick="window.showFullEditView()">+ 개별 추가</button><button class="button small-button" style="background:#ec4899; color:white; border:none;" onclick="window.showBulkAddModal()">🤖 스마트 추가</button>
-    <button class="button small-button primary-button" style="background:#1e293b; color:white; border:none; padding: 8px 15px; font-size:1.05em; margin-left:10px;" onclick="window.openReviewManager()">🔍 모아보기</button></div>
+    </div>
+    <div style="background:#f8fafc; padding:15px; border-radius:12px; margin-bottom:15px; display:flex; gap:10px; flex-wrap:wrap;"><button class="button small-button light-button" onclick="window.selectAll(true)">전체 선택</button><button class="button small-button light-button" onclick="window.selectAll(false)">해제</button><button class="button small-button" style="background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe;" onclick="window.copySelected()">선택 복사</button><button class="button small-button" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;" onclick="window.deleteSelected()">선택 삭제</button><button class="button small-button primary-button" style="background:#8b5cf6; border:none;" onclick="window.toggleInlineCreateUI('questions')">+ 새 폴더 생성</button><div style="flex:1;"></div><button class="button small-button primary-button" onclick="window.showFullEditView()">+ 개별 추가</button><button class="button small-button" style="background:#ec4899; color:white; border:none;" onclick="window.showBulkAddModal()">🤖 스마트 추가</button></div>
     <div id="inline-create-questions" class="hidden" style="margin-bottom:15px; padding:15px; background:#f1f5f9; border-radius:10px; border:2px dashed #cbd5e1; display:flex; gap:10px;"><input type="text" id="create-inp-questions" placeholder="새 폴더명 입력" style="flex:1; padding:10px; border-radius:6px; border:1px solid #cbd5e1;"><button class="button primary-button" onclick="window.execInlineCreate('questions')">생성</button><button class="button light-button" onclick="window.toggleInlineCreateUI('questions')">취소</button></div>
     <div style="display:flex; gap:10px; margin-bottom:15px;"><input type="text" id="manage-search" placeholder="지식 내용 검색..." style="flex:1; padding:15px; border-radius:10px; border:2px solid #cbd5e1;" onkeyup="window.filterManagementList()"><button id="bm-filter-btn" class="button light-button" style="padding:0 15px; font-weight:bold; color:#f59e0b; border:1px solid #fcd34d;" onclick="window.toggleBmFilter()">⭐ 북마크</button><button id="gcm-filter-btn" class="button light-button" style="padding:0 15px; font-weight:bold;" onclick="window.toggleGcmFilter()">🔗 GCM</button></div><div id="q-list-wrapper"></div>`;
     window.renderManagementList();
 };
 
-// 🚨 [신규] 빠른 모아보기 기능 (Quick Review Manager)
 window.openReviewManager = async function() {
     window.showView('review-view');
     window.showLoading();
-    // 데이터 모두 긁어오기
     const qSnap = await db.collection('subjects').doc(window.currentSubjectId).collection('questions').orderBy('createdAt','desc').get();
     window.reviewQuestions = qSnap.docs.map(d=>({id:d.id, ...d.data()}));
     const cSnap = await db.collection('subjects').doc(window.currentSubjectId).collection('caseStudies').orderBy('createdAt','desc').get();
@@ -43,7 +45,7 @@ window.renderReviewUI = function(type) {
     const v = document.getElementById('review-view');
     let html = `<div style="background:white; padding:25px; border-radius:15px; min-height:80vh;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:2px solid #f1f5f9; padding-bottom:15px;">
-            <h2 style="margin:0; color:#1e293b;">🔍 통합 모아보기</h2><button class="button small-button light-button" onclick="window.manageSubject('${window.currentSubjectId}')">돌아가기</button>
+            <h2 style="margin:0; color:#1e293b;">🔍 통합 모아보기 (빠른 복습)</h2><button class="button small-button light-button" onclick="window.manageSubject('${window.currentSubjectId}')">돌아가기</button>
         </div>
         <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; background:#f8fafc; padding:10px; border-radius:12px;">
             <button class="button small-button ${type==='remind'?'primary-button':'light-button'}" onclick="window.renderReviewUI('remind')">💡 핵심 리마인드</button>
@@ -70,18 +72,16 @@ window.renderReviewUI = function(type) {
     }
     else if (type === 'case') {
         if(window.reviewCases.length===0) html += `<div style="padding:30px; text-align:center; color:#94a3b8;">사례 분석 데이터가 없습니다.</div>`;
-        window.reviewCases.forEach(s => { html += `<div style="background:#fff7ed; padding:15px; border:1px solid #fed7aa; border-radius:10px;"><h4 style="margin:0 0 10px 0; color:#ea580c;">${window.esc(s.title)}</h4><table style="width:100%; border-collapse:collapse; border:1px solid #fed7aa; background:white; font-size:0.9em;"><thead><tr style="background:#ea580c; color:white;"><th style="padding:8px; border:1px solid #fed7aa;">사례</th><th style="padding:8px; border:1px solid #fed7aa;">비사례</th></tr></thead><tbody><tr><td style="padding:8px; border:1px solid #fed7aa; vertical-align:top;"><b>상황:</b> ${window.esc(s.sit_c)}<br><br><b>원리/진단:</b> ${window.esc(s.pri_c)}<br><br><b>상태/결과:</b> ${window.esc(s.sta_c)}<br><br><b>포인트:</b> ${window.esc(s.pnt_c)}</td><td style="padding:8px; border:1px solid #fed7aa; vertical-align:top;"><b>상황:</b> ${window.esc(s.sit_n)}<br><br><b>원리/진단:</b> ${window.esc(s.pri_n)}<br><br><b>상태/결과:</b> ${window.esc(s.sta_n)}<br><br><b>포인트:</b> ${window.esc(s.pnt_n)}</td></tr></tbody></table></div>`; });
+        window.reviewCases.forEach(s => { html += `<div style="background:#fff7ed; padding:15px; border:1px solid #fed7aa; border-radius:10px;"><h4 style="margin:0 0 10px 0; color:#ea580c;">${window.esc(s.title)}</h4><table style="width:100%; border-collapse:collapse; border:1px solid #fed7aa; background:white; font-size:0.9em;"><thead><tr style="background:#ea580c; color:white;"><th style="padding:8px; border:1px solid #fed7aa;">구분</th><th style="padding:8px; border:1px solid #fed7aa;">사례</th><th style="padding:8px; border:1px solid #fed7aa;">비사례</th></tr></thead><tbody><tr><td style="padding:8px; border:1px solid #fed7aa; font-weight:bold; background:#fff7ed;">상황</td><td style="padding:8px; border:1px solid #fed7aa; vertical-align:top;">${window.esc(s.sit_c)}</td><td style="padding:8px; border:1px solid #fed7aa; vertical-align:top;">${window.esc(s.sit_n)}</td></tr><tr><td style="padding:8px; border:1px solid #fed7aa; font-weight:bold; background:#fff7ed;">작용 원리</td><td style="padding:8px; border:1px solid #fed7aa; vertical-align:top;">${window.esc(s.pri_c)}</td><td style="padding:8px; border:1px solid #fed7aa; vertical-align:top;">${window.esc(s.pri_n)}</td></tr><tr><td style="padding:8px; border:1px solid #fed7aa; font-weight:bold; background:#fff7ed;">생리적 상태</td><td style="padding:8px; border:1px solid #fed7aa; vertical-align:top;">${window.esc(s.sta_c)}</td><td style="padding:8px; border:1px solid #fed7aa; vertical-align:top;">${window.esc(s.sta_n)}</td></tr><tr><td style="padding:8px; border:1px solid #fed7aa; font-weight:bold; background:#fff7ed;">학습 포인트</td><td style="padding:8px; border:1px solid #fed7aa; vertical-align:top;">${window.esc(s.pnt_c)}</td><td style="padding:8px; border:1px solid #fed7aa; vertical-align:top;">${window.esc(s.pnt_n)}</td></tr></tbody></table></div>`; });
     }
     else if (type === 'comp') {
         if(window.reviewComps.length===0) html += `<div style="padding:30px; text-align:center; color:#94a3b8;">비교표 데이터가 없습니다.</div>`;
         window.reviewComps.forEach(c => { html += `<div style="background:#f0f9ff; padding:15px; border:1px solid #bae6fd; border-radius:10px; overflow-x:auto;"><h4 style="margin:0 0 10px 0; color:#0284c7;">${window.esc(c.title)}</h4><table style="width:100%; border-collapse:collapse; border:1px solid #bae6fd; background:white; font-size:0.9em; min-width:500px;"><thead><tr style="background:#0284c7; color:white;"><th style="padding:8px; border:1px solid #bae6fd;">${window.esc(c.col1Name)}</th><th style="padding:8px; border:1px solid #bae6fd;">${window.esc(c.col2Name)}</th>${c.col3Name?`<th style="padding:8px; border:1px solid #bae6fd;">${window.esc(c.col3Name)}</th>`:''}${c.col4Name?`<th style="padding:8px; border:1px solid #bae6fd;">${window.esc(c.col4Name)}</th>`:''}</tr></thead><tbody>${c.rows.map(r=>`<tr><td style="padding:8px; border:1px solid #bae6fd;">${window.esc(r.col1)}</td><td style="padding:8px; border:1px solid #bae6fd;">${window.esc(r.col2)}</td>${c.col3Name?`<td style="padding:8px; border:1px solid #bae6fd;">${window.esc(r.col3)}</td>`:''}${c.col4Name?`<td style="padding:8px; border:1px solid #bae6fd;">${window.esc(r.col4)}</td>`:''}</tr>`).join('')}</tbody></table></div>`; });
     }
-    
-    html += `</div></div>`;
-    v.innerHTML = html;
+    html += `</div></div>`; v.innerHTML = html;
 };
 
-// 기존 함수들 복원 (변경 없음)
+// 기존 함수들 생략 없이 모두 보존
 window.getPathInputHtml = function(val, idx) { return `<div style="display:flex; gap:10px; margin-bottom:10px;" class="path-row"><span style="font-weight:bold; color:#64748b; padding-top:10px;">${idx+1}단계:</span><input type="text" class="path-input" value="${window.esc(val)}" placeholder="${idx+1}단계 목차" style="flex:1; padding:10px; border-radius:6px; border:1px solid #cbd5e1;"><button class="button small-button" style="background:#fee2e2; color:#ef4444; border:none; padding:10px;" onclick="this.parentElement.remove()">❌</button></div>`; };
 window.addPathInput = function() { const c = document.getElementById('paths-container'); c.insertAdjacentHTML('beforeend', window.getPathInputHtml('', c.querySelectorAll('.path-row').length)); };
 window.addQImageSlot = function(url = '', desc = '') { window.qImageCount = window.qImageCount || 0; const c = document.getElementById('q-images-container'); const div = document.createElement('div'); div.className = 'q-img-slot'; div.innerHTML = `<div style="background:white; padding:15px; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:10px;"><div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;"><span style="font-weight:bold; color:#64748b; font-size:1.2em;">🖼️/🎬</span><input type="text" class="q-img-url" value="${window.esc(url)}" placeholder="미디어 URL 입력 (동영상/이미지)" style="flex:1; padding:8px; border-radius:6px; border:1px solid #cbd5e1;"><label class="button light-button" style="padding:8px 12px; cursor:pointer;">파일선택<input type="file" accept="image/*,video/mp4,video/webm" style="display:none;" onchange="window.handleImageUpload(this, this.parentElement.previousElementSibling)"></label><button class="button small-button" style="background:#fee2e2; color:#ef4444; border:none; padding:8px 12px;" onclick="this.closest('.q-img-slot').remove()">❌ 삭제</button></div><input type="text" class="q-img-desc" value="${window.esc(desc)}" placeholder="미디어 설명 (선택)" style="width:100%; margin-top:8px; padding:8px; border-radius:6px; border:1px solid #cbd5e1; box-sizing:border-box;"></div>`; c.appendChild(div); };
