@@ -1,6 +1,5 @@
 // =========================================================
-// [v24.0.0] app-parser.js: Grice & First Principles & Saussure
-// (Zero Over-guessing, Structural Markdown Un-gluing)
+// [v25.0.0] app-parser.js: Reconstruction Separated DB Extraction
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -8,9 +7,8 @@ window.showBulkAddModal = function() {
     m.innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"></div>
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (그라이스 격률 적용)</h2>
-            <p style="color:#64748b; margin-bottom:10px;">오지랖을 버렸습니다. 줄바꿈이 날아가고 글자가 떡져 있어도 <b>본질적인 구조</b>를 파악해 완벽하게 도려냅니다.</p>
-            <p style="color:#ef4444; font-size:0.95em; font-weight:bold; background:#fee2e2; padding:10px; border-radius:8px;">🚨 붙여넣기 팁: AI에게 "사례분석과 비교표는 반드시 | 기호로 구분되는 마크다운 표로 출력해줘"라고 하시면 100% 성공합니다!</p>
+            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (7대 구역 분리)</h2>
+            <p style="color:#64748b; margin-bottom:10px;">줄바꿈이 떡져있어도 본질적인 구조를 파악해 완벽하게 도려냅니다.</p>
         </div>
         <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 통째로 붙여넣으세요..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
@@ -28,14 +26,13 @@ window.processUnifiedBulkAdd = async function() {
     window.showLoading();
 
     try {
-        // 🚨 1. 대분류 구조 강제 복원 (떡진 텍스트 도려내기)
         text = text.replace(/([^\n])([\[(]?1[\])]?\.?\s*(?:정답\s*및\s*)?핵심\s*리마인드)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?2[\])]?\.?\s*실전\s*대비)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?3[\])]?\.?\s*지식\s*재구성)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?4[\])]?\.?\s*시각적\s*구조화)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?5[\])]?\.?\s*사례\s*분석)/i, '$1\n$2');
         text = text.replace(/([^\n])([\[(]?6[\])]?\.?\s*다단\s*비교표)/i, '$1\n$2');
-        text = text.replace(/([^\n])([\[(]?7[\])]?\.?\s*학습\s*데이터)/i, '$1\n$2');
+        text = text.replace(/([^\n])([\[(]?7[\])]?\.?\s*(?:수업\s*노트|학습\s*데이터))/i, '$1\n$2');
 
         const extractSection = (str, startRegex, endRegex) => {
             let startMatch = str.match(startRegex);
@@ -49,35 +46,34 @@ window.processUnifiedBulkAdd = async function() {
         };
 
         let s1 = extractSection(text, /1\.?\s*(?:정답\s*및\s*)?핵심\s*리마인드/i, /2\.?\s*실전\s*대비/i);
-        let s23 = extractSection(text, /2\.?\s*실전\s*대비(?:.*?정리노트)?/i, /4\.?\s*시각적\s*구조화/i);
+        let s2 = extractSection(text, /2\.?\s*실전\s*대비(?:.*?정리노트)?/i, /3\.?\s*지식\s*재구성/i);
+        let s3 = extractSection(text, /3\.?\s*지식\s*재구성/i, /4\.?\s*시각적\s*구조화/i);
         let s4 = extractSection(text, /4\.?\s*시각적\s*구조화/i, /5\.?\s*사례\s*분석/i);
         let s5 = extractSection(text, /5\.?\s*사례\s*분석(?:.*?비-?사례)?/i, /6\.?\s*다단\s*비교표/i);
-        let s6 = extractSection(text, /6\.?\s*다단\s*비교표/i, /7\.?\s*학습\s*데이터/i);
-        let s7 = extractSection(text, /7\.?\s*학습\s*데이터(?:.*?프로토콜)?/i, null);
+        let s6 = extractSection(text, /6\.?\s*다단\s*비교표/i, /7\.?\s*(?:수업\s*노트|학습\s*데이터)/i);
+        let s7 = extractSection(text, /7\.?\s*(?:수업\s*노트|학습\s*데이터(?:.*?프로토콜)?)/i, null);
 
         const ts = firebase.firestore.FieldValue.serverTimestamp();
-        let counts = {q:0, c:0, n:0, v:0, s:0};
+        let counts = {q:0, r:0, c:0, n:0, v:0, s:0};
 
         let coreRemind = s1.replace(/\[.*?\]/g, '').replace(/정답은.*?(입니다|다\.)/i, '').replace(/핵심\s*리마인드[:\s]*/i, '').trim();
 
-        // 🚨 2. 퀴즈 파트 세부 도려내기 (오지랖 제거)
-        if (s23 || coreRemind) {
-            let qObj = { category:'미분류', negativeType:'', text:'', answer:'', shortExplanation:'', explanation:'', mnemonic:'', mnemonicDesc:'', knowledgeNetwork:'', diagramFormula:'', options:[], optionImages:['','','','',''], images:[], pathLevels:[], keywords:[], tags:[], bookmarked:false, coreRemind: coreRemind };
+        // 🚨 [2] 실전 대비 퀴즈 (이제 지식 재구성 필드가 빠짐)
+        if (s2 || coreRemind) {
+            let qObj = { category:'미분류', negativeType:'', text:'', answer:'', shortExplanation:'', explanation:'', options:[], optionImages:['','','','',''], images:[], pathLevels:[], bookmarked:false, coreRemind: coreRemind };
             
             const qKeys = [
                 { k: 'type', r: /문제\s*유형[:\s]*/i }, { k: 'text', r: /질문\s*내용[:\s]*/i }, { k: 'ans', r: /정답(?!\s*및)[:\s]*/i },
                 { k: 'opts', r: /선택지[:\s]*/i }, { k: 'short', r: /(?:1줄\s*해설|해설\s*요약)[:\s]*/i }, { k: 'exp', r: /상세\s*해설[:\s]*/i },
-                { k: 'path', r: /목차\s*정보[:\s]*/i }, { k: 'mne', r: /암기\s*코드[:\s]*/i }, { k: 'mneD', r: /해석\s*및\s*풀이[:\s]*/i },
-                { k: 'knR', r: /지식\s*연결망[:\s]*/i }, { k: 'diag', r: /도식\s*및\s*핵심\s*(?:공식|원리)[:\s]*/i },
-                { k: 'kw', r: /키워드[:\s]*/i }, { k: 'tg', r: /태그[:\s]*/i }
+                { k: 'path', r: /목차\s*정보[:\s]*/i }
             ];
 
             let qData = {};
             for (let i = 0; i < qKeys.length; i++) {
-                let startMatch = s23.match(qKeys[i].r);
+                let startMatch = s2.match(qKeys[i].r);
                 if (!startMatch) { qData[qKeys[i].k] = ''; continue; }
                 let startIndex = startMatch.index + startMatch[0].length;
-                let subText = s23.substring(startIndex);
+                let subText = s2.substring(startIndex);
                 
                 let closest = subText.length;
                 for (let j = 0; j < qKeys.length; j++) {
@@ -88,7 +84,6 @@ window.processUnifiedBulkAdd = async function() {
                 qData[qKeys[i].k] = subText.substring(0, closest).trim();
             }
 
-            // 그라이스 적용: 원본 텍스트 그대로 넣음! 강제 '1' 변환 폐기!
             if(qData.type) qObj.negativeType = qData.type; 
             if(qData.text) qObj.text = qData.text;
             if(qData.ans) qObj.answer = qData.ans.replace(/^\d+\)\s*/, '');
@@ -100,12 +95,6 @@ window.processUnifiedBulkAdd = async function() {
             if(qData.short) qObj.shortExplanation = qData.short;
             if(qData.exp) qObj.explanation = qData.exp;
             if(qData.path) qObj.pathLevels = qData.path.split(/\n|,|단계:/).map(s=>s.trim().replace(/^\d+\s*/,'')).filter(Boolean);
-            if(qData.mne) qObj.mnemonic = qData.mne;
-            if(qData.mneD) qObj.mnemonicDesc = qData.mneD;
-            if(qData.knR) qObj.knowledgeNetwork = qData.knR;
-            if(qData.diag) qObj.diagramFormula = qData.diag;
-            if(qData.kw) qObj.keywords = qData.kw.replace(/#/g,'').split(/[,|/]+|\s+/).map(s=>s.trim()).filter(Boolean);
-            if(qData.tg) qObj.tags = qData.tg.replace(/#/g,'').split(/[,|/]+|\s+/).map(s=>s.trim()).filter(Boolean);
 
             if(!qObj.text) qObj.text = "질문 내용 없음 (스마트 주입)";
             qObj.createdAt = ts; qObj.updatedAt = ts;
@@ -113,30 +102,61 @@ window.processUnifiedBulkAdd = async function() {
             counts.q++;
         }
 
-        // 🚨 [4] 시각적 구조화 가독성 복원
+        // 🚨 [3] 지식 재구성 (독립 저장)
+        if (s3) {
+            let rObj = { title:'새 지식 재구성', category:'미분류', mnemonic:'', mnemonicDesc:'', knowledgeNetwork:'', diagramFormula:'', keywords:[], tags:[] };
+            
+            const rKeys = [
+                { k: 'mne', r: /암기\s*코드[:\s]*/i }, { k: 'mneD', r: /해석\s*및\s*풀이[:\s]*/i }, { k: 'knR', r: /지식\s*연결망[:\s]*/i },
+                { k: 'diag', r: /도식\s*및\s*핵심\s*(?:공식|원리)[:\s]*/i }, { k: 'kw', r: /키워드[:\s]*/i }, { k: 'tg', r: /태그[:\s]*/i }
+            ];
+
+            let rData = {};
+            for (let i = 0; i < rKeys.length; i++) {
+                let startMatch = s3.match(rKeys[i].r);
+                if (!startMatch) { rData[rKeys[i].k] = ''; continue; }
+                let startIndex = startMatch.index + startMatch[0].length;
+                let subText = s3.substring(startIndex);
+                
+                let closest = subText.length;
+                for (let j = 0; j < rKeys.length; j++) {
+                    if (i === j) continue;
+                    let m = subText.match(rKeys[j].r);
+                    if (m && m.index < closest) closest = m.index;
+                }
+                rData[rKeys[i].k] = subText.substring(0, closest).trim();
+            }
+
+            if(rData.mne) rObj.mnemonic = rData.mne;
+            if(rData.mneD) rObj.mnemonicDesc = rData.mneD;
+            if(rData.knR) rObj.knowledgeNetwork = rData.knR;
+            if(rData.diag) rObj.diagramFormula = rData.diag;
+            if(rData.kw) { rObj.keywords = rData.kw.replace(/#/g,'').split(/[,|/]+|\s+/).map(s=>s.trim()).filter(Boolean); if(rObj.keywords.length>0) rObj.title = rObj.keywords[0] + ' 지식 재구성'; }
+            if(rData.tg) rObj.tags = rData.tg.replace(/#/g,'').split(/[,|/]+|\s+/).map(s=>s.trim()).filter(Boolean);
+
+            rObj.createdAt = ts; rObj.updatedAt = ts;
+            await db.collection('subjects').doc(window.currentSubjectId).collection('reconstructions').add(rObj);
+            counts.r++;
+        }
+
+        // [4] 시각적 구조화 가독성 복원
         if (s4) {
             let vContent = s4.replace(/(🗺️|⭕|중심 노드|좁은 QRS|넓은 QRS|기기 특성|교집합|일반 성인|임신부 영역|규칙적|불규칙적|좁규|넓규)/g, '\n\n$1');
             await db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').add({ category:'미분류', title:'시각적 구조화', content: vContent.trim(), createdAt:ts, updatedAt:ts });
             counts.v++;
         }
 
-        // 🚨 [5] 사례 분석 (소쉬르의 구조주의 표 분해 - 제목에 상관없이 위치로 매핑)
+        // [5] 사례 분석
         if (s5) {
             let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
-            
-            // 표가 떡진 경우 알려진 '기둥' 앞에만 엔터와 파이프를 삽입해 숨통을 틔워줌
             let s5Clean = s5.replace(/([^\n|])\s*(상황|작용\s*원리|판단\s*근거|에너지\s*설정|선택\s*에너지|생리적\s*상태|처치|학습\s*포인트|판단|결과|원리|상태|포인트|이유)\s*\|/g, '$1\n$2 |');
-            
             let tableLines = s5Clean.split('\n').filter(l => l.includes('|'));
             let dataRows = [];
             tableLines.forEach(l => {
                 if (l.replace(/\s+/g,'').includes('---|')) return;
                 let cols = l.split('|').map(s=>s.trim());
-                if(cols[0] === '') cols.shift();
-                if(cols[cols.length-1] === '') cols.pop();
-                if(!cols.join('').includes('구분') && !cols.join('').includes('구체적 사례')) {
-                    dataRows.push(cols);
-                }
+                if(cols[0] === '') cols.shift(); if(cols[cols.length-1] === '') cols.pop();
+                if(!cols.join('').includes('구분') && !cols.join('').includes('구체적 사례')) { dataRows.push(cols); }
             });
 
             if(dataRows.length > 0) {
@@ -144,9 +164,7 @@ window.processUnifiedBulkAdd = async function() {
                 if(dataRows[1]) { sObj.pri_c = dataRows[1][1]||''; sObj.pri_n = dataRows[1][2]||''; }
                 if(dataRows[2]) { sObj.sta_c = dataRows[2][1]||''; sObj.sta_n = dataRows[2][2]||''; }
                 if(dataRows[3]) { sObj.pnt_c = dataRows[3][1]||''; sObj.pnt_n = dataRows[3][2]||''; }
-            } else {
-                sObj.sit_c = s5; // 심각하게 깨진 경우 통째로 보존
-            }
+            } else { sObj.sit_c = s5; }
 
             if (sObj.sit_c || sObj.pri_c) {
                 sObj.createdAt = ts; sObj.updatedAt = ts;
@@ -155,20 +173,16 @@ window.processUnifiedBulkAdd = async function() {
             }
         }
 
-        // 🚨 [6] 다단 비교표 (안전한 떡진 표 분해 - 'QRS 폭' 보호, 단위 뒤만 공략)
+        // [6] 다단 비교표
         if (s6) {
             let cObj = { title:'다단 비교표', category:'미분류', col1Name:'', col2Name:'', col3Name:'', col4Name:'', rows:[] };
-            
-            // QRS 폭 같은 단어를 파괴하지 않음. 에너지(J) 단위나 규칙성 같은 명확한 끝점 뒤에 한글/알파벳이 오면 분해
             let s6Clean = s6.replace(/(J|s|초|점|\)|에너지|여부|규칙성)\s*([가-힣A-Za-z])/g, '$1\n$2');
-
             let tableLines = s6Clean.split('\n').filter(l => l.includes('|'));
             let dataRows = [];
             tableLines.forEach(l => {
                 if (l.replace(/\s+/g,'').includes('---|')) return;
                 let cols = l.split('|').map(s=>s.trim());
-                if(cols[0] === '') cols.shift();
-                if(cols[cols.length-1] === '') cols.pop();
+                if(cols[0] === '') cols.shift(); if(cols[cols.length-1] === '') cols.pop();
                 dataRows.push(cols);
             });
 
@@ -176,7 +190,6 @@ window.processUnifiedBulkAdd = async function() {
                 let headers = dataRows[0];
                 cObj.col1Name = headers[0] || '항목1'; cObj.col2Name = headers[1] || '항목2';
                 cObj.col3Name = headers[2] || ''; cObj.col4Name = headers[3] || '';
-
                 for (let i = 1; i < dataRows.length; i++) {
                     let dr = dataRows[i];
                     let c1 = dr[0]||'-'; let c2 = dr[1]||'-';
@@ -190,17 +203,17 @@ window.processUnifiedBulkAdd = async function() {
             }
         }
 
-        // [7] 일반 노트 가독성 복원
+        // [7] 일반 노트 (수업 노트)
         if (s7) {
             let nContent = s7.replace(/(\[PHASE|코드:|해설:|그림|포인트:|1층:|2층:|3층:|작은 바구니|중간 바구니|큰 바구니)/g, '\n\n$1');
-            await db.collection('subjects').doc(window.currentSubjectId).collection('notes').add({ category:'미분류', title:'학습 데이터 프로토콜', content: nContent.trim(), createdAt:ts, updatedAt:ts });
+            await db.collection('subjects').doc(window.currentSubjectId).collection('notes').add({ category:'미분류', title:'수업 노트', content: nContent.trim(), createdAt:ts, updatedAt:ts });
             counts.n++;
         }
 
         window.hideLoading(); window.closeModal(); 
         if (window.currentSubjectId && typeof window.manageSubject === 'function') window.manageSubject(window.currentSubjectId);
         
-        alert(`✨ 제1원칙 퀀텀 주입 완벽 성공!\n✅ 퀴즈/재구성(리마인드): ${counts.q}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 일반노트: ${counts.n}건`);
+        alert(`✨ 완벽 스마트 주입 성공!\n✅ 퀴즈: ${counts.q}건\n🧠 재구성: ${counts.r}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 수업노트: ${counts.n}건`);
 
     } catch(err) {
         window.hideLoading(); console.error(err); alert("🚨 파싱 오류: " + err.message);
