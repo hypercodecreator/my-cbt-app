@@ -1,6 +1,6 @@
 // =========================================================
-// [v43.0.0] app-parser.js: Absolute Safe Table Extractor
-// (Eliminates empty ghost columns & strictly maps by index)
+// [v43.0.0] app-parser.js: Smart Bypass & Absolute Preservation
+// (Never touches valid markdown tables. Only rescues broken ones)
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -8,8 +8,8 @@ window.showBulkAddModal = function() {
     m.innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"></div>
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (절대 정렬판)</h2>
-            <p style="color:#64748b; margin-bottom:10px;">마크다운 기호가 겹치거나 떡져있어도, 유령 빈칸을 없애고 <b>순서대로 정확히 꽂아 넣습니다.</b></p>
+            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (스마트 보존판)</h2>
+            <p style="color:#64748b; margin-bottom:10px;">완벽한 표(| 기호)가 들어오면 절대 훼손하지 않고 100% 원형 그대로 흡수합니다.</p>
         </div>
         <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 통째로 붙여넣으세요..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
@@ -103,47 +103,43 @@ window.processUnifiedBulkAdd = async function() {
             counts.v++;
         }
 
-        // 🧠 마법의 범용 표 파서: 빈칸(유령 칸)을 싹 다 제거해서 밀림 현상을 100% 방지합니다!
+        // 🧠 범용 표 추출기 (유령 빈칸 싹 다 무시)
         const parseUniversalTable = (textBlock) => {
             let lines = textBlock.split('\n');
             let rows = [];
             lines.forEach(l => {
-                if (l.replace(/\s+/g,'').match(/^[-=|]+$/)) return; // 마크다운 점선 제거
-                // 파이프(|)나 탭(\t)으로 자르고, 좌우 공백 제거 후, "빈 문자열('')은 완전히 없애버림" (중요!!)
-                let cols = l.split(/\||\t/).map(s=>s.trim()).filter(s => s !== ''); 
-                
+                if (l.replace(/\s+/g,'').match(/^[-=|]+$/)) return;
+                // 파이프나 탭으로 쪼갠 뒤, 빈 문자열('')은 완전히 필터링! (유령 파이프 방지)
+                let cols = l.split(/\||\t/).map(s=>s.trim()).filter(s => s !== '');
                 if (cols.length >= 2) rows.push(cols);
             });
             return rows;
         };
 
-        // 🚨 [5] 사례 분석: 빈칸 밀림 방지 및 절대 맵핑
+        // 🚨 [5] 사례 분석: 스마트 바이패스 (정상적인 표는 절대 건드리지 않음!)
         if (s5) {
             let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
             let s5Clean = s5.replace(/[-=|]{3,}/g, '');
-            
-            // 텍스트가 완전히 떡진 경우에만 강제로 | 삽입
-            if (!s5Clean.includes('|') && !s5Clean.includes('\t')) {
-                s5Clean = s5Clean.replace(/(상태|상황|원인|작용\s*원리|에너지\s*설정|이유|해당\s*혈관|혈색\s*양상|처치|생리적\s*상태|학습\s*포인트|판단\s*근거)/g, '\n$1 | ');
-            } else {
-                // 이미 | 가 있다면 떡진 앞부분만 엔터로 분리 (유령 파이프 생성 방지)
-                s5Clean = s5Clean.replace(/([^\n])\s*(상태|상황|원인|작용\s*원리|에너지\s*설정|이유|해당\s*혈관|혈색\s*양상|처치|생리적\s*상태|학습\s*포인트|판단\s*근거)\s*(?:\||\t)/g, '$1\n$2 | ');
-            }
-
             let dataRows = parseUniversalTable(s5Clean);
 
+            // 💡 만약 파이프(|) 기호가 없어서 표가 깨졌을 경우에만 강제로 찢어냅니다.
+            if (dataRows.length < 2) {
+                s5Clean = s5Clean.replace(/(상태|상황|원인|작용\s*원리|에너지\s*설정|이유|해당\s*혈관|혈색\s*양상|처치|생리적\s*상태|학습\s*포인트|판단\s*근거)/g, '\n$1 | ');
+                dataRows = parseUniversalTable(s5Clean);
+            }
+
             if (dataRows.length > 0) {
-                // '구분'이나 '사례'라는 제목 줄은 버림
-                let pureDataRows = dataRows.filter(row => !row.join('').includes('구분') && !row.join('').includes('구체적 사례'));
+                // "구분" 이나 "사례"가 포함된 제목 줄은 필터링
+                let pureDataRows = dataRows.filter(row => !row.join('').includes('구분') && !row.join('').includes('구체적 사례') && !row.join('').includes('Case Study'));
                 
-                // 빈칸이 이미 필터링되어 데이터가 [제목, 사례, 비사례] 딱 3칸으로 좁혀졌으므로, 1번과 2번 인덱스를 무조건 꽂아넣음
+                // 단어가 뭐가 오든 무조건 순서대로 1,2,3,4번 칸에 쑤셔 넣습니다. (완벽한 1원칙)
                 if(pureDataRows[0]) { sObj.sit_c = pureDataRows[0][1]||''; sObj.sit_n = pureDataRows[0][2]||''; }
                 if(pureDataRows[1]) { sObj.pri_c = pureDataRows[1][1]||''; sObj.pri_n = pureDataRows[1][2]||''; }
                 if(pureDataRows[2]) { sObj.sta_c = pureDataRows[2][1]||''; sObj.sta_n = pureDataRows[2][2]||''; }
                 if(pureDataRows[3]) { sObj.pnt_c = pureDataRows[3][1]||''; sObj.pnt_n = pureDataRows[3][2]||''; }
             } else {
                 sObj.sit_c = s5.trim();
-                sObj.sit_n = "⚠️ 표 데이터 인식 실패. AI에게 마크다운 표 출력을 요청하세요.";
+                sObj.sit_n = "⚠️ 표 데이터 인식 실패. AI에게 마크다운 표(| 기호 포함) 출력을 요청하세요.";
             }
 
             if (sObj.sit_c || sObj.pri_c || sObj.sta_c || sObj.pnt_c) {
@@ -153,20 +149,17 @@ window.processUnifiedBulkAdd = async function() {
             }
         }
 
+        // 🚨 [6] 다단 비교표: 스마트 바이패스 (정상적인 표 보호)
         if (s6) {
             let cObj = { title:'다단 비교표', category:'미분류', headers:[], matrix:[] };
             let s6Clean = s6.replace(/[-=|]{3,}/g, '');
-            
-            if (!s6Clean.includes('|') && !s6Clean.includes('\t')) {
-                s6Clean = s6Clean.replace(/(QRS 모양|주요 원인|시각적 특징|리듬 형태|QRS 폭|규칙성|이상파형|단상파형|비교 항목)/g, '\n$1 |');
-            } else {
-                s6Clean = s6Clean.replace(/(J|s|초|점|\)|에너지|여부|규칙성|적|음|조동|세동|빈맥|모양|원인|특징)\s*([가-힣A-Z])/g, (m,p1,p2) => {
-                    if(p1.toUpperCase() === 'S' && p2 === '폭') return m;
-                    return p1 + ' |\n' + p2;
-                });
-            }
-
             let dataRows = parseUniversalTable(s6Clean);
+
+            // 표가 깨졌을 때만 살려냄
+            if (dataRows.length < 2) {
+                s6Clean = s6Clean.replace(/(QRS 모양|주요 원인|시각적 특징|리듬 형태|QRS 폭|규칙성|이상파형|단상파형|비교 항목)/g, '\n$1 |');
+                dataRows = parseUniversalTable(s6Clean);
+            }
 
             if (dataRows.length > 0) {
                 cObj.headers = dataRows.shift();
@@ -190,7 +183,7 @@ window.processUnifiedBulkAdd = async function() {
         window.hideLoading(); window.closeModal(); 
         if (window.currentSubjectId && typeof window.manageSubject === 'function') window.manageSubject(window.currentSubjectId);
         
-        alert(`✨ 1원칙 절대 파쇄 주입 완벽 성공!\n✅ 퀴즈: ${counts.q}건\n🧠 재구성: ${counts.r}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 수업노트: ${counts.n}건`);
+        alert(`✨ 1원칙 절대 정렬 주입 성공!\n✅ 퀴즈: ${counts.q}건\n🧠 재구성: ${counts.r}건\n✅ 시각맵: ${counts.v}건\n✅ 사례분석: ${counts.s}건\n✅ 비교표: ${counts.c}건\n✅ 수업노트: ${counts.n}건`);
 
     } catch(err) {
         window.hideLoading(); console.error(err); alert("🚨 파싱 오류: " + err.message);
