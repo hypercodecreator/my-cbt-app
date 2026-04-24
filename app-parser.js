@@ -1,6 +1,6 @@
 // =========================================================
-// [v41.0.0] app-parser.js: Absolute Sequential Extraction
-// (Completely ignores keywords. Forces row 1,2,3,4 mapping)
+// [v42.0.0] app-parser.js: Absolute Force-Split Parser
+// (Guarantees splitting even when words are entirely glued)
 // =========================================================
 
 window.showBulkAddModal = function() { 
@@ -8,8 +8,8 @@ window.showBulkAddModal = function() {
     m.innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"></div>
     <div class="modal" style="max-width:1000px; width:95%; background:#fff; border-radius:20px; padding:35px; box-shadow:0 10px 40px rgba(0,0,0,0.15); position:relative; z-index:100000;">
         <div style="text-align:center; margin-bottom:20px;">
-            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (절대 1원칙)</h2>
-            <p style="color:#64748b; margin-bottom:10px;">키워드 예측을 버렸습니다. 위에서부터 <b>무조건 순서대로</b> 빈칸을 채워 넣습니다.</p>
+            <h2 style="color:#4f46e5; margin-bottom:10px; font-size:1.8em;">🤖 퀀텀 스마트 주입기 (절대 파쇄판)</h2>
+            <p style="color:#64748b; margin-bottom:10px;">띄어쓰기가 아예 없어도 무조건 4줄로 찢어버립니다.</p>
         </div>
         <textarea id="bulk-input" style="width:100%; height:400px; padding:20px; border-radius:15px; border:2px solid #e2e8f0; font-family:'Consolas', monospace; line-height:1.6; font-size:1.05em; box-sizing:border-box; background:#f8fafc;" placeholder="여기에 텍스트를 통째로 붙여넣으세요..."></textarea>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
@@ -98,7 +98,7 @@ window.processUnifiedBulkAdd = async function() {
         }
 
         if (s4) {
-            let vContent = s4.replace(/(🗺️|⭕|중심 노드|좁은 QRS|넓은 QRS|기기 특성|교집합|일반 성인|임신부 영역|규칙적|불규칙적|좁규|넓규|공급로|배출로)/g, '\n\n$1');
+            let vContent = s4.replace(/(🗺️|⭕|중심 노드|좁은 QRS|넓은 QRS|기기 특성|교집합|일반 성인|임신부 영역|규칙적|불규칙적|좁규|넓규|공급로|배출로|역할|특이점)/g, '\n\n$1');
             await db.collection('subjects').doc(window.currentSubjectId).collection('visualMaps').add({ category:'미분류', title:'시각적 구조화', content: vContent.trim(), createdAt:ts, updatedAt:ts });
             counts.v++;
         }
@@ -116,17 +116,20 @@ window.processUnifiedBulkAdd = async function() {
             return rows;
         };
 
-        // 🚨 [5] 사례 분석: 키워드 검색 완전 폐기! 무조건 순서대로 1, 2, 3, 4번째 데이터 줄을 강제로 집어넣음
+        // 🚨 [5] 사례 분석: 지독한 떡짐 완전 파쇄기! (띄어쓰기 없이 붙어있어도 찢어냄)
         if (s5) {
             let sObj = { title:'사례 분석', category:'미분류', sit_c:'', sit_n:'', pri_c:'', pri_n:'', sta_c:'', sta_n:'', pnt_c:'', pnt_n:'' };
             let s5Clean = s5.replace(/[-=|]{3,}/g, '');
+            
+            // 💡 "학습 포인트"VT..." 처럼 완전히 붙어있는 경우를 대비해, 키워드 앞에서 무조건 엔터를 치고, 뒤에 | 를 강제 주입!
+            s5Clean = s5Clean.replace(/(상태|상황|원인|작용\s*원리|에너지\s*설정|해당\s*혈관|혈색\s*양상|처치|생리적\s*상태|학습\s*포인트|판단\s*근거|이유)/g, '\n$1 | ');
+
             let dataRows = parseUniversalTable(s5Clean);
 
             if (dataRows.length > 0) {
-                // "구분"이나 "구체적 사례"라는 글자가 있는 제목 줄은 버림
                 let pureDataRows = dataRows.filter(row => !row.join('').includes('구분') && !row.join('').includes('구체적 사례'));
                 
-                // 단어가 뭐든 상관없이 무조건 위에서부터 차례대로 꽂아 넣음!
+                // 단어에 연연하지 않고 무조건 1,2,3,4번 줄을 꽂아 넣음!
                 if(pureDataRows[0]) { sObj.sit_c = pureDataRows[0][1]||''; sObj.sit_n = pureDataRows[0][2]||''; }
                 if(pureDataRows[1]) { sObj.pri_c = pureDataRows[1][1]||''; sObj.pri_n = pureDataRows[1][2]||''; }
                 if(pureDataRows[2]) { sObj.sta_c = pureDataRows[2][1]||''; sObj.sta_n = pureDataRows[2][2]||''; }
