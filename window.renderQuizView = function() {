@@ -43,6 +43,54 @@ window.renderBaseUI = function() {
         <button class="button primary-button" onclick="window.showAddSubjectModal()" style="width:100%; padding:18px; margin-top:20px; font-size:1.1em; background:#0f172a; border-radius:15px;">+ 새 과목 추가</button>
     `;
 };
+
+window.renderQuizView = function() {
+    window.showView('quiz-view');
+    const qList = window.filteredQuestions;
+    const view = document.getElementById('quiz-view');
+    if (qList.length === 0) {
+        view.innerHTML = `<div style="text-align:center; padding:50px;"><h2 style="color:#64748b;">표시할 문제가 없습니다.</h2><button class="button primary-button" onclick="window.manageSubject('${window.currentSubjectId}')">돌아가기</button></div>`;
+        return;
+    }
+    const q = qList[window.currentQuizIndex];
+    let html = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="margin:0; font-size:1.5em; color:#1e293b;">${window.currentSubjectData.name} <span style="color:#3b82f6;">(${window.currentQuizIndex + 1} / ${qList.length})</span></h2>
+            <div style="display:flex; gap:10px;">
+                <button id="elimination-btn" class="button light-button" style="border:2px solid #cbd5e1; font-weight:bold; transition:all 0.2s;" onclick="window.toggleEliminationMode()">❌ 소거법 모드 OFF</button>
+                <button class="button light-button" style="border:2px solid #cbd5e1;" onclick="window.manageSubject('${window.currentSubjectId}')">종료</button>
+            </div>
+        </div>
+        <div style="background:white; padding:30px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.05); margin-bottom:20px; border-top:5px solid #3b82f6;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                <span style="background:#e0f2fe; color:#0369a1; padding:5px 12px; border-radius:20px; font-size:0.9em; font-weight:bold;">${window.esc(q.category)}</span>
+                <span style="color:#64748b; font-size:0.9em;">유형: ${q.negativeType}</span>
+            </div>
+            <h3 style="font-size:1.4em; color:#0f172a; margin-bottom:20px; line-height:1.5;">${window.esc(q.text)}</h3>
+            <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:25px;">`;
+
+    q.options.forEach((opt, i) => {
+        html += `<div class="quiz-option" style="padding:15px 20px; background:#f8fafc; border:2px solid #e2e8f0; border-radius:12px; font-size:1.1em; color:#334155; transition:all 0.2s ease;">
+            <span style="font-weight:bold; margin-right:10px; color:#3b82f6;">${i + 1}.</span> ${window.esc(opt)}
+        </div>`;
+    });
+
+    html += `</div>
+        <button id="show-answer-btn" class="button primary-button" style="width:100%; height:60px; font-size:1.2em; border-radius:12px;" onclick="window.showAnswer()">정답 확인하기</button>
+        <div id="answer-area" class="hidden" style="margin-top:25px; padding:25px; background:#f0fdf4; border-radius:15px; border:2px solid #bbf7d0;">
+            <h3 style="color:#166534; margin-top:0; font-size:1.3em;">🎯 정답: ${window.esc(q.answer)}</h3>
+            ${q.shortExplanation ? `<div style="background:#dcfce3; padding:12px; border-radius:8px; color:#166534; font-weight:bold; margin-bottom:15px;">${window.esc(q.shortExplanation)}</div>` : ''}
+            <div style="color:#064e3b; line-height:1.6; font-size:1.05em; white-space:pre-wrap;">${window.esc(q.explanation)}</div>
+            ${q.pathLevels && q.pathLevels.length > 0 ? `<div style="margin-top:20px; padding-top:15px; border-top:1px dashed #86efac; font-size:0.9em; color:#047857;">📍 출처: ${q.pathLevels.map(p => window.esc(p)).join(' > ')}</div>` : ''}
+        </div>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+            <button class="button light-button" style="height:50px; padding:0 25px; border:2px solid #cbd5e1;" onclick="window.prevQuiz()" ${window.currentQuizIndex === 0 ? 'disabled' : ''}>◀ 이전 문제</button>
+            <button class="button primary-button" style="height:50px; padding:0 25px;" onclick="window.nextQuiz()" ${window.currentQuizIndex === qList.length - 1 ? 'disabled' : ''}>다음 문제 ▶</button>
+        </div>`;
+    view.innerHTML = html;
+};
+
 window.showAddSubjectModal = function() { const m = document.getElementById('modal-container'); m.innerHTML = `<div class="modal-backdrop" onclick="window.closeModal()"></div><div class="modal"><h3>🆕 새 과목 추가</h3><div class="form-group"><label>폴더 지정 (예: 1학년/1학기)</label><input type="text" id="new-subject-category" placeholder="빈칸 시 미분류로 이동"></div><div class="form-group"><label>과목명</label><input type="text" id="new-subject-name"></div><div style="display:flex; gap:10px;"><button class="button primary-button" style="flex:1;" onclick="window.addSubject()">추가</button><button class="button light-button" style="flex:1;" onclick="window.closeModal()">취소</button></div></div>`; };
 window.showLoading = function() { let el = document.getElementById('floating-loader'); if(!el) { el = document.createElement('div'); el.id = 'floating-loader'; el.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#1e293b; color:white; padding:12px 30px; border-radius:30px; font-weight:bold; z-index:99999;"; document.body.appendChild(el); } el.innerHTML = `⏳ 시스템 처리 중...`; el.style.display = 'flex'; };
 window.hideLoading = function() { const el = document.getElementById('floating-loader'); if(el) el.style.display = 'none'; };
