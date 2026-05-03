@@ -1,17 +1,19 @@
 // =========================================================
-// [v16.5.0] app-ui.js: Added 'Core Remind' field to Editor
+// [v48.0.0] app-ui.js: Quiz Render with "Process of Elimination" Mode
 // =========================================================
 
-// app-ui.js 내부의 window.renderQuizView 함수만 교체합니다!
 window.renderQuizView = function() {
     window.showView('quiz-view');
     const qList = window.filteredQuestions;
     const view = document.getElementById('quiz-view');
-    if (qList.length === 0) {
+
+    if (!qList || qList.length === 0) {
         view.innerHTML = `<div style="text-align:center; padding:50px;"><h2 style="color:#64748b;">표시할 문제가 없습니다.</h2><button class="button primary-button" onclick="window.manageSubject('${window.currentSubjectId}')">돌아가기</button></div>`;
         return;
     }
+
     const q = qList[window.currentQuizIndex];
+
     let html = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h2 style="margin:0; font-size:1.5em; color:#1e293b;">${window.currentSubjectData.name} <span style="color:#3b82f6;">(${window.currentQuizIndex + 1} / ${qList.length})</span></h2>
@@ -20,22 +22,28 @@ window.renderQuizView = function() {
                 <button class="button light-button" style="border:2px solid #cbd5e1;" onclick="window.manageSubject('${window.currentSubjectId}')">종료</button>
             </div>
         </div>
+
         <div style="background:white; padding:30px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.05); margin-bottom:20px; border-top:5px solid #3b82f6;">
             <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
-                <span style="background:#e0f2fe; color:#0369a1; padding:5px 12px; border-radius:20px; font-size:0.9em; font-weight:bold;">${window.esc(q.category)}</span>
-                <span style="color:#64748b; font-size:0.9em;">유형: ${q.negativeType}</span>
+                <span style="background:#e0f2fe; color:#0369a1; padding:5px 12px; border-radius:20px; font-size:0.9em; font-weight:bold;">${window.esc(q.category || '미분류')}</span>
+                <span style="color:#64748b; font-size:0.9em;">유형: ${q.negativeType || '일반'}</span>
             </div>
+            
             <h3 style="font-size:1.4em; color:#0f172a; margin-bottom:20px; line-height:1.5;">${window.esc(q.text)}</h3>
-            <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:25px;">`;
+            
+            <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:25px;" id="quiz-options-container">`;
 
-    q.options.forEach((opt, i) => {
-        html += `<div class="quiz-option" style="padding:15px 20px; background:#f8fafc; border:2px solid #e2e8f0; border-radius:12px; font-size:1.1em; color:#334155; transition:all 0.2s ease;">
-            <span style="font-weight:bold; margin-right:10px; color:#3b82f6;">${i + 1}.</span> ${window.esc(opt)}
-        </div>`;
-    });
+    if (q.options && q.options.length > 0) {
+        q.options.forEach((opt, i) => {
+            html += `<div class="quiz-option" style="padding:15px 20px; background:#f8fafc; border:2px solid #e2e8f0; border-radius:12px; font-size:1.1em; color:#334155; transition:all 0.2s ease; user-select:none;">
+                <span style="font-weight:bold; margin-right:10px; color:#3b82f6;">${i + 1}.</span> <span class="opt-text">${window.esc(opt)}</span>
+            </div>`;
+        });
+    }
 
     html += `</div>
-        <button id="show-answer-btn" class="button primary-button" style="width:100%; height:60px; font-size:1.2em; border-radius:12px;" onclick="window.showAnswer()">정답 확인하기</button>
+        <button id="show-answer-btn" class="button primary-button" style="width:100%; height:60px; font-size:1.2em; border-radius:12px; background:#3b82f6; border:none; box-shadow:0 4px 10px rgba(59,130,246,0.3);" onclick="window.showAnswer()">정답 확인하기</button>
+        
         <div id="answer-area" class="hidden" style="margin-top:25px; padding:25px; background:#f0fdf4; border-radius:15px; border:2px solid #bbf7d0;">
             <h3 style="color:#166534; margin-top:0; font-size:1.3em;">🎯 정답: ${window.esc(q.answer)}</h3>
             ${q.shortExplanation ? `<div style="background:#dcfce3; padding:12px; border-radius:8px; color:#166534; font-weight:bold; margin-bottom:15px;">${window.esc(q.shortExplanation)}</div>` : ''}
@@ -43,11 +51,110 @@ window.renderQuizView = function() {
             ${q.pathLevels && q.pathLevels.length > 0 ? `<div style="margin-top:20px; padding-top:15px; border-top:1px dashed #86efac; font-size:0.9em; color:#047857;">📍 출처: ${q.pathLevels.map(p => window.esc(p)).join(' > ')}</div>` : ''}
         </div>
         </div>
+
         <div style="display:flex; justify-content:space-between;">
             <button class="button light-button" style="height:50px; padding:0 25px; border:2px solid #cbd5e1;" onclick="window.prevQuiz()" ${window.currentQuizIndex === 0 ? 'disabled' : ''}>◀ 이전 문제</button>
             <button class="button primary-button" style="height:50px; padding:0 25px;" onclick="window.nextQuiz()" ${window.currentQuizIndex === qList.length - 1 ? 'disabled' : ''}>다음 문제 ▶</button>
         </div>`;
+    
     view.innerHTML = html;
+    window.eliminationMode = false; // 새 문제를 열면 소거법 모드 초기화
+};
+
+window.showAnswer = function() {
+    document.getElementById('answer-area').classList.remove('hidden');
+    document.getElementById('show-answer-btn').style.display = 'none';
+};
+
+window.nextQuiz = function() { if (window.currentQuizIndex < window.filteredQuestions.length - 1) { window.currentQuizIndex++; window.renderQuizView(); } };
+window.prevQuiz = function() { if (window.currentQuizIndex > 0) { window.currentQuizIndex--; window.renderQuizView(); } };
+
+// 🚨 소거법 모드 컨트롤러
+window.eliminationMode = false;
+window.toggleEliminationMode = function() {
+    window.eliminationMode = !window.eliminationMode;
+    const btn = document.getElementById('elimination-btn');
+    const options = document.querySelectorAll('.quiz-option');
+    
+    if(window.eliminationMode) {
+        btn.style.background = '#ef4444'; 
+        btn.style.color = '#fff'; 
+        btn.style.borderColor = '#ef4444';
+        btn.innerText = '❌ 소거법 모드 ON';
+        
+        options.forEach(opt => {
+            opt.style.cursor = 'crosshair';
+            opt.onclick = function() {
+                const textSpan = this.querySelector('.opt-text');
+                if (textSpan.style.textDecoration === 'line-through') {
+                    textSpan.style.textDecoration = 'none';
+                    this.style.opacity = '1';
+                    this.style.background = '#f8fafc';
+                } else {
+                    textSpan.style.textDecoration = 'line-through';
+                    textSpan.style.textDecorationColor = '#ef4444';
+                    textSpan.style.textDecorationThickness = '2px';
+                    this.style.opacity = '0.5';
+                    this.style.background = '#f1f5f9';
+                }
+            };
+        });
+    } else {
+        btn.style.background = '#f8fafc'; 
+        btn.style.color = '#334155'; 
+        btn.style.borderColor = '#cbd5e1';
+        btn.innerText = '❌ 소거법 모드 OFF';
+        
+        options.forEach(opt => {
+            opt.style.cursor = 'default';
+            opt.onclick = null;
+        });
+    }
+};
+
+// 이하 기존 앱 기본 함수들 보존
+window.renderSubjectList = function() {
+    const list = document.getElementById('subject-list');
+    list.innerHTML = '';
+    const grouped = window.allSubjects.reduce((acc, s) => {
+        const p = s.parentPath || '미분류';
+        if (!acc[p]) acc[p] = [];
+        acc[p].push(s);
+        return acc;
+    }, {});
+
+    Object.keys(grouped).sort().forEach(path => {
+        const pathId = path.replace(/[^a-zA-Z0-9]/g, '-');
+        const count = grouped[path].length;
+        let html = `<div class="category-group" style="margin-bottom:20px; border:1px solid #e2e8f0; border-radius:12px; background:white; overflow:hidden;">
+            <div style="background:#f8fafc; padding:15px; cursor:pointer; display:flex; justify-content:space-between; align-items:center;" onclick="window.toggleAccordion('cat-${pathId}', 'icon-${pathId}')">
+                <b style="color:#3b82f6; font-size:1.1em; display:flex; align-items:center; gap:8px;"><span id="icon-${pathId}">📂</span> ${window.esc(path)} <span style="font-size:0.8em; color:#94a3b8; background:#e2e8f0; padding:2px 8px; border-radius:10px;">${count}</span></b>
+                <div style="display:flex; gap:5px;" onclick="event.stopPropagation()">
+                    <button class="button small-button light-button" onclick="window.renameSubjectFolder('${path}')">✏️</button>
+                    <button class="button small-button light-button" style="color:red;" onclick="window.deleteSubjectFolder('${path}')">🗑️</button>
+                </div>
+            </div>
+            <div id="cat-${pathId}" class="cat-content-wrapper hidden" style="padding:10px;">`;
+        
+        grouped[path].forEach(s => {
+            html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:15px; border:1px solid #f1f5f9; border-radius:10px; margin-bottom:10px; background:white; transition:transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                <div style="display:flex; align-items:center; gap:10px; flex:1; cursor:pointer;" onclick="window.manageSubject('${s.id}')">
+                    <input type="checkbox" class="subject-cb" value="${s.id}" onclick="event.stopPropagation()">
+                    <span style="font-size:1.1em; color:#1e293b; font-weight:500;">${window.esc(s.name)}</span>
+                </div>
+                <div class="action-buttons" style="display:flex; gap:6px;">
+                    <button class="button small-button light-button" style="background:#fffbeb; color:#d97706; border-color:#fde68a;" onclick="window.moveSubjectPrompt('${s.id}', '${s.parentPath||''}')">📁 이동</button>
+                    <button class="button small-button primary-button" onclick="window.startQuiz('${s.id}')">퀴즈</button>
+                    <button class="button small-button" style="background:#10b981; color:white; border:none;" onclick="window.startFlashcard('${s.id}')">O/X</button>
+                    <button class="button small-button" style="background:#f59e0b; color:white; border:none;" onclick="window.startRhythm('${s.id}')">🔗 연결</button>
+                    <button class="button small-button" style="background:#ec4899; color:white; border:none;" onclick="window.startAudioPlayer('${s.id}')">🎵 리듬</button>
+                    <button class="button small-button light-button" style="background:#64748b; color:white; border:none;" onclick="window.manageSubject('${s.id}')">관리</button>
+                </div>
+            </div>`;
+        });
+        html += `</div></div>`;
+        list.insertAdjacentHTML('beforeend', html);
+    });
 };
 
 window.showView = function(id) {
